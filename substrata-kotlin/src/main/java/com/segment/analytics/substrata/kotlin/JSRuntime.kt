@@ -1,33 +1,37 @@
 package com.segment.analytics.substrata.kotlin
 
+import com.eclipsesource.v8.V8Array
+import com.eclipsesource.v8.V8Object
+import com.segment.analytics.substrata.kotlin.j2v8.fromV8Array
+import com.segment.analytics.substrata.kotlin.j2v8.fromV8Object
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
-
-// Figure out how dataBridge is gonna fit in? maybe an extension?
-
-interface JSExtension<T> {
-    val name: String
-    val runtime: T
-
-    fun configureExtension()
-}
 
 /**
  * We cant add extensions to existing types like in swift, so its up to the user to provide
  * serializer/deserializer for custom types. We will provide all primitive ones.
  */
-sealed interface JSValue {
-    class JSString(val content: String) : JSValue
+interface JSValue {
 
-    class JSBool(val content: Boolean) : JSValue
+    @JvmInline
+    value class JSString(val content: String) : JSValue
 
-    abstract class JSNumber(val content: Number) : JSValue
-    class JSInt(content: Int) : JSNumber(content)
-    class JSFloat(content: Float) : JSNumber(content)
+    @JvmInline
+    value class JSBool(val content: Boolean) : JSValue
 
-    class JSObject(val content: JsonObject) : JSValue
+    @JvmInline
+    value class JSInt(val content: Int) : JSValue
 
-    class JSArray(val content: JsonArray) : JSValue
+    @JvmInline
+    value class JSDouble(val content: Double) : JSValue
+
+    class JSObject(val content: V8Object) : JSValue {
+        val mapRepresentation: JsonObject? by lazy { fromV8Object(content) }
+    }
+
+    class JSArray(val content: V8Array) : JSValue {
+        val listRepresentation: JsonArray? by lazy { fromV8Array(content) }
+    }
 
     /*
         fun foo() {
@@ -35,37 +39,12 @@ sealed interface JSValue {
             x(JSValue.JSUndefined)
         }
      */
-    class JSFunction(val fn: (params: List<JSValue>) -> JSValue) : JSValue {
+    class JSFunction(val fn: (params: JSArray) -> JSValue) : JSValue {
         // Non-null return type bcos JSValue.JSUndefined represents null
-        operator fun invoke(vararg params: JSValue): JSValue {
-            return fn(params.toList())
+        operator fun invoke(params: JSArray): JSValue {
+            return fn(params)
         }
     }
 
     object JSUndefined : JSValue
-}
-
-interface JSRuntime<T> {
-    val underlying: T
-
-    /**
-     * Not everything related to configuration can happen in the constructor, this block allows the
-     * runtime to be configured at a later point when all resources are available
-     */
-    fun configureRuntime()
-
-    // Retrieve a value from the runtime
-    fun get(key: String): JSValue
-
-    // Set a key-value in the runtime
-    fun set(key: String, value: JSValue)
-
-    // Call a JS function with given params
-    fun call(functionName: String, params: List<JSValue> = emptyList()): JSValue
-
-    // Evaluate a script
-    fun evaluate(script: String): JSValue
-
-    // Add extensions to the runtime, used to add custom features to the runtime
-    fun expose(extension: JSExtension<T>) // Brandon has this, but not sure what its supposed to do? is this the "registration" function?
 }
