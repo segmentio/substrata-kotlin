@@ -1,6 +1,7 @@
 package com.segment.analytics.substrata.kotlin
 
 import com.eclipsesource.v8.V8Array
+import com.eclipsesource.v8.V8Function
 import com.eclipsesource.v8.V8Object
 import com.segment.analytics.substrata.kotlin.j2v8.fromV8Array
 import com.segment.analytics.substrata.kotlin.j2v8.fromV8Object
@@ -39,12 +40,19 @@ interface JSValue {
             x(JSValue.JSUndefined)
         }
      */
-    class JSFunction(val fn: (params: JSArray) -> JSValue) : JSValue {
-        // Non-null return type bcos JSValue.JSUndefined represents null
-        operator fun invoke(params: JSArray): JSValue {
-            return fn(params)
-        }
-    }
+//    class JSFunction(val fn: (params: JSArray) -> JSValue) : JSValue {
+//
+//        constructor(v8Function: V8Function) : this({ params ->
+//            v8Function.call(null, params.content) as JSValue
+//        })
+//
+//        // Non-null return type bcos JSValue.JSUndefined represents null
+//        operator fun invoke(params: JSArray): JSValue {
+//            return fn(params)
+//        }
+//    }
+
+    class JSFunction(val fn: V8Function): JSValue
 
     object JSUndefined : JSValue
 }
