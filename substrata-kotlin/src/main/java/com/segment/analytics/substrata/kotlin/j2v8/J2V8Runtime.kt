@@ -5,10 +5,13 @@ import com.eclipsesource.v8.V8
 import com.eclipsesource.v8.V8Array
 import com.eclipsesource.v8.V8Function
 import com.eclipsesource.v8.V8Object
-import com.segment.analytics.substrata.kotlin.AnalyticsAPI
+import com.segment.analytics.substrata.kotlin.JSEngineError
 import com.segment.analytics.substrata.kotlin.JSValue
 import com.segment.analytics.substrata.kotlin.JavascriptDataBridge
 import com.segment.analytics.substrata.kotlin.JavascriptEngine
+import com.segment.analytics.substrata.kotlin.JavascriptErrorHandler
+import com.segment.analytics.substrata.kotlin.jsValueToString
+import com.segment.analytics.substrata.kotlin.wrapAsJSValue
 import io.alicorn.v8.V8JavaAdapter
 import java.util.concurrent.Callable
 import java.util.concurrent.ExecutorService
@@ -23,15 +26,16 @@ class J2V8Engine : JavascriptEngine {
     override lateinit var bridge: JavascriptDataBridge
 
     // All interaction with underlying runtime must be synchronized on the jsExecutor
-    private val jsExecutor: ExecutorService = Executors.newSingleThreadExecutor()
-    private lateinit var underlying: V8
+    internal val jsExecutor: ExecutorService = Executors.newSingleThreadExecutor()
+    internal lateinit var underlying: V8
+
+    var errorHandler: JavascriptErrorHandler? = null
 
     init {
         jsExecutor.await {
             underlying = V8.createV8Runtime()
             setupConsole()
             setupDataBridge()
-            setupAnalytics()
         }
     }
 
@@ -115,43 +119,12 @@ class J2V8Engine : JavascriptEngine {
         }
     }
 
-    override fun expose(objectName: String, function: JSValue.JSFunction, functionName: String) {
+    override fun extend(objectName: String, function: JSValue.JSFunction, functionName: String) {
         jsExecutor.sync {
             val v8Obj = V8Object(underlying) // maybe get if exists?
             v8Obj.add(functionName, function.fn)
             underlying.add(objectName, v8Obj)
         }
-    }
-
-    fun expose(function: JavaCallback, functionName: String) {
-        expose(JSValue.JSFunction(V8Function(underlying, function)), functionName)
-    }
-
-    fun expose(objectName: String, function: JavaCallback, functionName: String) {
-        expose(objectName, JSValue.JSFunction(V8Function(underlying, function)), functionName)
-    }
-
-    override fun call(function: JSValue, params: List<JSValue>): JSValue {
-        val result = jsExecutor.await {
-            underlying.memScope {
-                function as JSValue.JSFunction
-                val parameters = V8Array(underlying).apply {
-                    params.forEach { value ->
-                        when (value) {
-                            is JSValue.JSString -> push(value.content)
-                            is JSValue.JSBool -> push(value.content)
-                            is JSValue.JSInt -> push(value.content)
-                            is JSValue.JSDouble -> push(value.content)
-                            is JSValue.JSArray -> push(value.content)
-                            is JSValue.JSObject -> push(value.content)
-                            is JSValue.JSUndefined -> pushUndefined()
-                        }
-                    }
-                }
-                function.fn.call(null, parameters)
-            }
-        }
-        return wrapAsJSValue(result)
     }
 
     override fun call(function: String, params: List<JSValue>): JSValue {
@@ -187,11 +160,11 @@ class J2V8Engine : JavascriptEngine {
         // TODO add more versatility + Android log support
         val v8Console = V8Object(underlying)
         v8Console.registerJavaMethod({ _, v8Array ->
-            val msg = toString(v8Array)
+            val msg = jsValueToString(v8Array)
             println("[JSConsole.I] - $msg")
         }, "log")
         v8Console.registerJavaMethod({ _, v8Array ->
-            val msg = toString(v8Array)
+            val msg = jsValueToString(v8Array)
             println("[JSConsole.E] - $msg")
         }, "err")
         underlying.add("console", v8Console)
@@ -201,10 +174,21 @@ class J2V8Engine : JavascriptEngine {
         bridge = J2V8DataBridge(underlying, jsExecutor)
     }
 
-    private fun setupAnalytics() {
-        V8JavaAdapter.injectClass("Analytics", AnalyticsAPI::class.java, underlying)
+    private fun reportError(error: JSEngineError) {
+        errorHandler?.let { it(error) }
     }
+
 }
+
+
+fun J2V8Engine.expose(function: JavaCallback, functionName: String) {
+    expose(JSValue.JSFunction(V8Function(underlying, function)), functionName)
+}
+
+fun J2V8Engine.extend(objectName: String, function: JavaCallback, functionName: String) {
+    extend(objectName, JSValue.JSFunction(V8Function(underlying, function)), functionName)
+}
+
 
 class J2V8DataBridge(
     private val underlying: V8,
@@ -239,49 +223,6 @@ class J2V8DataBridge(
                 is JSValue.JSUndefined -> dataBridge.addUndefined(key)
             }
         }
-    }
-}
-
-private fun toString(value: Any): String {
-    return when (value) {
-        is Boolean -> value.toString()
-        is Int -> value.toString()
-        is Double -> value.toString()
-        is String -> value.toString()
-        is V8Array -> {
-            buildString {
-                for (i in 0 until value.length() - 1) {
-                    append(toString(value.get(i)))
-                    append(", ")
-                }
-            }
-        }
-        is V8Object -> {
-            buildString {
-                for (key in value.keys) {
-                    append(toString(value.get(key)))
-                    append(", ")
-                }
-            }
-        }
-        else -> {
-            "undefined"
-        }
-    }
-}
-
-private fun wrapAsJSValue(obj: Any?): JSValue {
-    if (obj.isNull()) {
-        return JSValue.JSUndefined
-    }
-    return when (obj) {
-        is Boolean -> JSValue.JSBool(obj)
-        is Int -> JSValue.JSInt(obj)
-        is Double -> JSValue.JSDouble(obj)
-        is String -> JSValue.JSString(obj)
-        is V8Array -> JSValue.JSArray(obj)
-        is V8Object -> JSValue.JSObject(obj)
-        else -> JSValue.JSUndefined
     }
 }
 

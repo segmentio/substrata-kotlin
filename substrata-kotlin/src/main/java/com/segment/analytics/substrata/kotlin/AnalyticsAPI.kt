@@ -23,6 +23,10 @@ object ContextProvider {
 
 class AnalyticsAPI(writeKey: String) {
 
+    init {
+        println("[PRAY] Creating analytics with $writeKey")
+    }
+
     val analytics = Analytics(
         Configuration(
             writeKey = writeKey,

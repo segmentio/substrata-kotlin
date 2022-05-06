@@ -147,6 +147,8 @@ fun <T : BaseEvent> V8Object.toSegmentEvent(): T? {
     return event as T // This is ok since `event` will always be one of BaseEvent's subtypes
 }
 
+
+// TODO("Make it extend from v8")
 fun toV8Object(v8: V8, map: Map<String, JsonElement>): V8Object {
     val result = V8Object(v8)
     try {
