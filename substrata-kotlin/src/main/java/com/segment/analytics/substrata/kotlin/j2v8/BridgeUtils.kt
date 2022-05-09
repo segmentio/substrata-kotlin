@@ -61,28 +61,28 @@ fun BaseEvent.toV8Object(v8: V8): V8Object {
     result.add("userId", userId)
 
     // Add complex types
-    result.add("context", toV8Object(v8, context))
-    result.add("integrations", toV8Object(v8, integrations))
+    result.add("context", v8.toV8Object(context))
+    result.add("integrations", v8.toV8Object(integrations))
 
     when (this) {
         is TrackEvent -> {
             result.add("event", event)
-            result.add("properties", toV8Object(v8, properties))
+            result.add("properties", v8.toV8Object(properties))
         }
         is ScreenEvent -> {
             result.add("name", name)
             result.add("category", category)
-            result.add("properties", toV8Object(v8, properties))
+            result.add("properties", v8.toV8Object(properties))
         }
         is AliasEvent -> {
             result.add("previousId", previousId)
         }
         is IdentifyEvent -> {
-            result.add("traits", toV8Object(v8, traits))
+            result.add("traits", v8.toV8Object(traits))
         }
         is GroupEvent -> {
             result.add("groupId", groupId)
-            result.add("traits", toV8Object(v8, traits))
+            result.add("traits", v8.toV8Object(traits))
         }
     }
 
@@ -147,13 +147,13 @@ fun <T : BaseEvent> V8Object.toSegmentEvent(): T? {
     return event as T // This is ok since `event` will always be one of BaseEvent's subtypes
 }
 
+/* V8 Extensions */
 
-// TODO("Make it extend from v8")
-fun toV8Object(v8: V8, map: Map<String, JsonElement>): V8Object {
-    val result = V8Object(v8)
+fun V8.toV8Object(map: Map<String, JsonElement>): V8Object {
+    val result = V8Object(this)
     try {
         for ((key, value) in map) {
-            setValue(v8, result, key, value)
+            setValue(result, key, value)
         }
     } catch (e: IllegalStateException) {
         result.close()
@@ -162,11 +162,11 @@ fun toV8Object(v8: V8, map: Map<String, JsonElement>): V8Object {
     return result
 }
 
-fun toV8Array(v8: V8, list: List<JsonElement>): V8Array {
-    val result = V8Array(v8)
+fun V8.toV8Array(list: List<JsonElement>): V8Array {
+    val result = V8Array(this)
     try {
         for (value in list) {
-            pushValue(v8, result, value)
+            pushValue(result, value)
         }
     } catch (e: IllegalStateException) {
         result.close()
@@ -175,8 +175,7 @@ fun toV8Array(v8: V8, list: List<JsonElement>): V8Array {
     return result
 }
 
-private fun pushValue(
-    v8: V8,
+private fun V8.pushValue(
     result: V8Array,
     value: JsonElement?,
 ) {
@@ -186,8 +185,7 @@ private fun pushValue(
         }
         is JsonPrimitive -> {
             when (val serialized = value.toContent()) {
-                null -> { /* skip */
-                }
+                null -> Unit /* skip */
                 is Boolean -> result.push(serialized)
                 is Int -> result.push(serialized)
                 is Long -> result.push(serialized.toDouble())
@@ -196,19 +194,18 @@ private fun pushValue(
             }
         }
         is JsonObject -> {
-            val v8Obj = toV8Object(v8, value)
+            val v8Obj = toV8Object(value)
             result.push(v8Obj)
         }
         is JsonArray -> {
-            val v8Arr = toV8Array(v8, value)
+            val v8Arr = toV8Array(value)
             result.push(v8Arr)
         }
     }
 }
 
 
-private fun setValue(
-    v8: V8,
+private fun V8.setValue(
     result: V8Object,
     key: String,
     value: JsonElement?,
@@ -227,11 +224,11 @@ private fun setValue(
             }
         }
         is JsonObject -> {
-            val v8Obj = toV8Object(v8, value)
+            val v8Obj = toV8Object(value)
             result.add(key, v8Obj)
         }
         is JsonArray -> {
-            val v8Arr = toV8Array(v8, value)
+            val v8Arr = toV8Array(value)
             result.add(key, v8Arr)
         }
     }
