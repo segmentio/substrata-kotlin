@@ -1,5 +1,6 @@
 package com.segment.analytics.substrata.kotlin
 
+import java.io.InputStream
 import kotlin.reflect.KClass
 
 interface JavascriptDataBridge {
@@ -10,7 +11,7 @@ interface JavascriptDataBridge {
 interface JavascriptEngine {
     val bridge: JavascriptDataBridge
 
-    fun loadBundle(completion: (Error) -> Unit)
+    fun loadBundle(bundleStream: InputStream, completion: (JSEngineError?) -> Unit)
 
     operator fun get(key: String): JSValue?
     operator fun set(key: String, value: JSValue)
@@ -24,12 +25,12 @@ interface JavascriptEngine {
     fun execute(script: String): JSValue?
 }
 
-sealed interface JSEngineError {
-    object BundleNotFound : JSEngineError
-    object UnableToLoad : JSEngineError
-    class UnknownError(val error: Error) : JSEngineError
-    class EvaluationError(val script: String) : JSEngineError
-    class TimeoutError(val script: String) : JSEngineError
+sealed class JSEngineError: Exception() {
+    object BundleNotFound : JSEngineError()
+    object UnableToLoad : JSEngineError()
+    class UnknownError(val error: Exception) : JSEngineError()
+    class EvaluationError(val script: String) : JSEngineError()
+    class TimeoutError(val msg: String) : JSEngineError()
 }
 
 typealias JavascriptErrorHandler = (JSEngineError) -> Unit

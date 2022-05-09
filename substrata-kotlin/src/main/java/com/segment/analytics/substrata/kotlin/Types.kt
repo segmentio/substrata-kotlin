@@ -40,7 +40,7 @@ interface JSValue {
     object JSNull : JSValue
 }
 
-fun jsValueToString(value: Any): String {
+fun jsValueToString(value: Any?): String {
     return when (value) {
         is Boolean -> value.toString()
         is Int -> value.toString()
@@ -58,7 +58,7 @@ fun jsValueToString(value: Any): String {
                 append(", ")
             }
         }
-        is JSValue.JSNull -> "null"
+        null -> "null"
         else -> "undefined"
     }
 }
