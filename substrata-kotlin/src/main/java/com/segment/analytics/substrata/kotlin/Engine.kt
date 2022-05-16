@@ -23,6 +23,7 @@ interface JavascriptEngine {
     fun call(function: String, params: List<JSValue> = emptyList()): JSValue?
 
     fun execute(script: String): JSValue?
+    fun <T : Any> expose(key: String, value: T)
 }
 
 sealed class JSEngineError: Exception() {

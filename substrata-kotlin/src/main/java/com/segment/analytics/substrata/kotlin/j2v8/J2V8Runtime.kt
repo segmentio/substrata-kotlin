@@ -132,6 +132,12 @@ class J2V8Engine : JavascriptEngine {
         }
     }
 
+    override fun <T: Any> expose(key: String, value: T) {
+        jsExecutor.sync {
+            V8JavaAdapter.injectObject(key, value, underlying)
+        }
+    }
+
     override fun <C : Any> expose(clazz: KClass<C>, className: String) {
         jsExecutor.sync {
             V8JavaAdapter.injectClass(className, clazz.java, underlying)
