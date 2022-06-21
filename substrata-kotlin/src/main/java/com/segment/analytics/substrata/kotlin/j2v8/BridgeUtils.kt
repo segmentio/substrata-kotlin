@@ -180,9 +180,8 @@ private fun V8.pushValue(
     value: JsonElement?,
 ) {
     when (value) {
-        null, JsonNull -> {
-            // skip it
-        }
+        null -> Unit
+        is JsonNull -> result.pushNull()
         is JsonPrimitive -> {
             when (val serialized = value.toContent()) {
                 null -> Unit /* skip */
@@ -211,7 +210,8 @@ private fun V8.setValue(
     value: JsonElement?,
 ) {
     when (value) {
-        null, JsonNull -> result.addUndefined(key)
+        null -> result.addUndefined(key)
+        is JsonNull -> result.addNull(key)
         is JsonPrimitive -> {
             when (val serialized = value.toContent()) {
                 null -> { /* skip */
@@ -247,7 +247,7 @@ private fun getValue(value: Any?, type: Int): JsonElement? {
 }
 
 fun fromV8Object(obj: V8Object?): JsonObject? {
-    if (obj == null) {
+    if (obj == null || obj.isUndefined) {
         return null
     }
     return buildJsonObject {
@@ -274,7 +274,7 @@ fun fromV8Object(obj: V8Object?): JsonObject? {
 }
 
 fun fromV8Array(array: V8Array?): JsonArray? {
-    if (array == null) {
+    if (array == null || array.isUndefined) {
         return null
     }
     return buildJsonArray {

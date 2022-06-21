@@ -74,24 +74,10 @@ class JSRuntimeBenchmarking {
             timestamp = Date(0).toInstant().toString()
         }
 
-        val time1 = benchmark {
-            serializeToJS(runtime, e)
-        }
-        println("[Benchmarking] (J2V8) Native Encode is $time1 ms")
-        val time2 = benchmark {
+        val time = benchmark {
             e.toV8Object(runtime)
         }
-        println("[Benchmarking] (J2V8) Custom Encode is $time2 ms")
-//
-//
-//        val time4 = benchmark {
-//            e.toV8Object(runtime)
-//        }
-//        println("[Benchmarking] (J2V8) Custom Encode is $time4 ms")
-//        val time3 = benchmark {
-//            serializeToJS(runtime, e)
-//        }
-//        println("[Benchmarking] (J2V8) Native Encode is $time3 ms")
+        println("[Benchmarking] (J2V8) Custom Encode is $time ms")
     }
 
     @Test
@@ -136,30 +122,15 @@ class JSRuntimeBenchmarking {
 
         val obj = e.toV8Object(runtime)
         println(obj)
-//        val time1 = benchmark {
-//            deserializeFromJS<TrackEvent>(obj)
-//        }
-//        println("[Benchmarking] (J2V8) Native Decode is $time1 ms")
-        val time2 = benchmark {
+        val time = benchmark {
             obj.toSegmentEvent<TrackEvent>()
         }
-        println("[Benchmarking] (J2V8) Custom Decode is $time2 ms")
+        println("[Benchmarking] (J2V8) Custom Decode is $time ms")
         val x: TrackEvent? = obj.toSegmentEvent()
         x?.let {
             println(Json { prettyPrint = true }.encodeToString(TrackEvent.serializer(), it))
         }
     }
-
-
-//    @Test
-//    fun testPerformance() {
-//        for (i in 0..0) {
-//        testDataBridgeQuick()
-//        testDataBridgeJ2V8()
-//            testReturnCallbackQuick()
-//            testReturnCallbackJ2V8()
-//        }
-//    }
 }
 
 fun benchmark(times: Int = 10000, closure: () -> Unit): Double {
