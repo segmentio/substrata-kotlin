@@ -45,3 +45,6 @@ dependencies {
     implementation 'com.eclipsesource.j2v8:j2v8:6.2.0@aar'
     implementation 'io.alicorn.v8:v8-adapter:1.59'
 }
+
+apply from: rootProject.file('gradle/artifacts.gradle')
+apply from: rootProject.file('gradle/publish.gradle')
