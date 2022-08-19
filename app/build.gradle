@@ -7,7 +7,7 @@ android {
     compileSdk 31
 
     defaultConfig {
-        applicationId "com.segment.analytics.substrata.kotlin"
+        applicationId "com.segment.analytics.substrata.kotlin.sample"
         minSdk 21
         targetSdk 31
         versionCode 1
@@ -32,7 +32,9 @@ android {
 }
 
 dependencies {
-    implementation project(':substrata-kotlin')
+//    api 'com.segment.analytics.kotlin:substrata-kotlin:0.0.2'
+    api project(':substrata-kotlin')
+    implementation 'com.eclipsesource.j2v8:j2v8:6.2.0@aar'
     implementation 'androidx.core:core-ktx:1.7.0'
     implementation 'androidx.appcompat:appcompat:1.4.1'
     implementation 'com.google.android.material:material:1.5.0'

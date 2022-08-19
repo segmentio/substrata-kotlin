@@ -1,10 +1,9 @@
-package com.segment.analytics.substrata.app
+package com.segment.analytics.substrata.kotlin.sample
 
 import android.os.Bundle
 import android.util.Log
 import androidx.appcompat.app.AppCompatActivity
 import com.segment.analytics.substrata.kotlin.JSValue
-import com.segment.analytics.substrata.kotlin.R
 import com.segment.analytics.substrata.kotlin.j2v8.J2V8Engine
 
 class MainActivity : AppCompatActivity() {

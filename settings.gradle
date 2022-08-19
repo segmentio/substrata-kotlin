@@ -10,6 +10,14 @@ dependencyResolutionManagement {
     repositories {
         google()
         mavenCentral()
+        maven {
+            name = "GitHubPackages"
+            url = uri("https://maven.pkg.github.com/segmentio/substrata-kotlin")
+            credentials {
+                username = GITHUB_USERNAME
+                password = GITHUB_TOKEN
+            }
+        }
     }
 }
 rootProject.name = "substrata-kotlin"

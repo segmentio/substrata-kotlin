@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="com.segment.analytics.substrata.kotlin">
+    package="com.segment.analytics.substrata.kotlin.sample">
 
     <!-- Required for internet. -->
     <uses-permission android:name="android.permission.INTERNET" />
@@ -22,7 +22,7 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.Substratakotlin">
         <activity
-            android:name="com.segment.analytics.substrata.app.MainActivity"
+            android:name=".MainActivity"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
