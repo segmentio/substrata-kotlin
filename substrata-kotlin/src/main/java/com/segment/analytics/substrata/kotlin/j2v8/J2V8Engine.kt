@@ -7,6 +7,7 @@ import com.eclipsesource.v8.V8Function
 import com.eclipsesource.v8.V8Object
 import com.eclipsesource.v8.V8ScriptCompilationException
 import com.eclipsesource.v8.V8ScriptExecutionException
+import com.eclipsesource.v8.V8Value
 import com.segment.analytics.substrata.kotlin.JSEngineError
 import com.segment.analytics.substrata.kotlin.JSValue
 import com.segment.analytics.substrata.kotlin.JavascriptEngine
@@ -45,7 +46,7 @@ class J2V8Engine(private val timeoutInSeconds: Long = 120L) : JavascriptEngine {
 
     // All interaction with underlying runtime must be synchronized on the jsExecutor
     internal val jsExecutor: ExecutorService = Executors.newSingleThreadExecutor()
-    lateinit var underlying: V8
+    internal lateinit var underlying: V8
 
     // Main errorHandler that can be set by user. This allows us to handle any exceptions,
     // without worrying about propagating errors to the application and crashing it
@@ -88,7 +89,7 @@ class J2V8Engine(private val timeoutInSeconds: Long = 120L) : JavascriptEngine {
             underlying.memScope {
                 var result: Any? = null
                 underlying.get(key).let { value ->
-                    if (!value.isNull()) {
+                    if (!value.isNull() && !value.isUndefined()) {
                         result = value
                     } else {
                         underlying.executeScript(key).let { v ->
@@ -173,7 +174,7 @@ class J2V8Engine(private val timeoutInSeconds: Long = 120L) : JavascriptEngine {
         jsExecutor.sync {
             val v8Obj: V8Object? = underlying.get(objectName).let { value ->
                 when {
-                    value.isNull() -> {
+                    value.isNull() || value.isUndefined() -> {
                         V8Object(underlying)
                     }
                     value is V8Object -> {
@@ -384,6 +385,10 @@ fun J2V8Engine.extend(objectName: String, function: JavaCallback, functionName: 
 
 private fun Any?.isNull(): Boolean {
     return this == null
+}
+
+private fun Any?.isUndefined(): Boolean {
+    return (this as? V8Value)?.isUndefined ?: false
 }
 
 private fun jsValueToString(value: Any?): String {

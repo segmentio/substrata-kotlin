@@ -24,7 +24,7 @@ class J2V8DataBridge(
         val result = engine.syncRunEngine { v8 ->
             v8.executeScript("$DataBridgeKey.$key")
         }
-        return engine.wrapAsJSValue(result)
+        return result
     }
 
     override operator fun set(key: String, value: JSValue) {
