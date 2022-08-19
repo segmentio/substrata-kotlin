@@ -46,7 +46,7 @@ class J2V8Engine(private val timeoutInSeconds: Long = 120L) : JavascriptEngine {
 
     // All interaction with underlying runtime must be synchronized on the jsExecutor
     internal val jsExecutor: ExecutorService = Executors.newSingleThreadExecutor()
-    internal lateinit var underlying: V8
+    lateinit var underlying: V8
 
     // Main errorHandler that can be set by user. This allows us to handle any exceptions,
     // without worrying about propagating errors to the application and crashing it
