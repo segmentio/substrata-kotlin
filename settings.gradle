@@ -1,0 +1,25 @@
+pluginManagement {
+    repositories {
+        gradlePluginPortal()
+        google()
+        mavenCentral()
+    }
+}
+dependencyResolutionManagement {
+    repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+    repositories {
+        google()
+        mavenCentral()
+        maven {
+            name = "GitHubPackages"
+            url = uri("https://maven.pkg.github.com/segmentio/substrata-kotlin")
+            credentials {
+                username = GITHUB_USERNAME
+                password = GITHUB_TOKEN
+            }
+        }
+    }
+}
+rootProject.name = "substrata-kotlin"
+include ':app'
+include ':substrata-kotlin'
