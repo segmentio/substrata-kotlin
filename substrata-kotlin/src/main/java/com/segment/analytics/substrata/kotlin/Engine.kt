@@ -16,20 +16,16 @@ interface JavascriptEngine {
     operator fun get(key: String): JSValue?
     operator fun set(key: String, value: JSValue)
 
-    fun <C : Any> expose(clazz: KClass<C>, className: String)
-    fun expose(function: JSValue.JSFunction, functionName: String)
-    fun extend(objectName: String, function: JSValue.JSFunction, functionName: String)
+    fun <T : JSExport> export(obj : T, objectName: String)
+    fun <T : JSExport> export(clazz: KClass<T>, className: String)
+    fun export(function: JSFunction, functionName: String)
+    fun extend(objectName: String, function: JSFunction, functionName: String)
 
-    fun call(function: String, params: List<JSValue> = emptyList()): JSValue?
-    fun call(function: JSValue.JSFunction, params: List<JSValue> = emptyList()): JSValue?
-    fun call(
-        receiver: JSValue.JSObjectReference,
-        function: String,
-        params: List<JSValue> = emptyList()
-    ): JSValue?
+    fun call(function: String, params: List<JSValue> = emptyList()): JSValue
+    fun call(function: JSFunction, params: List<JSValue> = emptyList()): JSValue
+    fun call(jsObject: JSObjectRef, function: String, params: List<JSValue> = emptyList()): JSValue
 
-    fun execute(script: String): JSValue?
-    fun <T : Any> expose(key: String, value: T)
+    fun evaluate(script: String): JSValue
 
     fun release()
 }
