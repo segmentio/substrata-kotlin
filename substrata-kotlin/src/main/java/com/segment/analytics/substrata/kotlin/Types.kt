@@ -2,6 +2,9 @@ package com.segment.analytics.substrata.kotlin
 
 import com.eclipsesource.v8.*
 import com.segment.analytics.substrata.kotlin.j2v8.add
+import com.segment.analytics.substrata.kotlin.j2v8.toJsonElement
+import kotlinx.serialization.json.JsonElement
+import java.lang.Exception
 
 /**
  * We cant add extensions to existing types like in swift, so its up to the user to provide
@@ -22,7 +25,7 @@ interface JSValue {
     companion object {
         fun from(obj: Any?) : JSValue{
             return when (obj) {
-                null -> return JSNull
+                null -> JSNull
                 is Boolean -> JSBool(obj)
                 is Int -> JSInt(obj)
                 is Double -> JSDouble(obj)
@@ -129,6 +132,57 @@ class JSFunction(val function : JSFunctionDefinition) : JSValue {
 
 typealias JSFunctionDefinition = (JSObject?, JSArray?) -> JSValue
 
+@JvmInline
+value class JSElement(val content: JsonElement): JSValue {
+    override fun toAny(runtime: V8): Any? {
+        TODO("Not yet implemented")
+    }
+
+}
+
+open class JSParameters {
+    private val content = mutableListOf<Any>()
+
+    fun put(value: Boolean) = content.add(value)
+
+    fun put(value: Int) = content.add(value)
+
+    fun put(value: Double) = content.add(value)
+
+    fun put(value: String) = content.add(value)
+
+    fun put(value: JsonElement) = content.add(value)
+
+    fun put(value: JSValue) = content.add(value)
+
+    fun put(value: Any, converter: (Any) -> JSValue) {
+        put(converter(value))
+    }
+}
+
+class JSResult internal constructor(private val content: Any) {
+    init {
+        require(content is V8Object)
+    }
+
+    fun asJSValue() {
+        check()
+        JSValue.from(content)
+    }
+
+    fun asJsonElement() {
+        check()
+        content.toJsonElement()
+    }
+
+    private fun check() {
+        val obj = content as V8Object
+        if (obj.isReleased) {
+            throw Exception("JSResult has been released. Make sure you only read the value once.")
+        }
+    }
+}
+
 class JSObjectRef(obj: Any)  {
     val ref : Any
 
@@ -142,8 +196,4 @@ class JSObjectRef(obj: Any)  {
     }
 }
 
-open class JSExport : JSValue {
-    override fun toAny(runtime: V8): Any? {
-        TODO("Not yet implemented")
-    }
-}
+open class JSExport

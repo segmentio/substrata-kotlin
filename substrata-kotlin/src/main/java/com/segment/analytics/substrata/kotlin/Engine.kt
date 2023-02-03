@@ -1,5 +1,6 @@
 package com.segment.analytics.substrata.kotlin
 
+import kotlinx.serialization.json.JsonElement
 import java.io.InputStream
 import kotlin.reflect.KClass
 
@@ -24,6 +25,10 @@ interface JavascriptEngine {
     fun call(function: String, params: List<JSValue> = emptyList()): JSValue
     fun call(function: JSFunction, params: List<JSValue> = emptyList()): JSValue
     fun call(jsObject: JSObjectRef, function: String, params: List<JSValue> = emptyList()): JSValue
+
+    fun call(function: String, params: List<JsonElement> = emptyList()): JsonElement
+    fun call(function: JSFunction, params: List<JsonElement> = emptyList()): JsonElement
+    fun call(jsObject: JSObjectRef, function: String, params: List<JsonElement> = emptyList()): JsonElement
 
     fun evaluate(script: String): JSValue
 
