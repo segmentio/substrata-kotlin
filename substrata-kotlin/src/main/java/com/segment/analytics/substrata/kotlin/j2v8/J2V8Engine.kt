@@ -149,62 +149,30 @@ class J2V8Engine(private val timeoutInSeconds: Long = 120L) : JavascriptEngine {
         }
     }
 
-    override fun call(function: String, params: List<JSValue>): JSValue = jsExecutor.await {
-        val parameters = JSArray(params).toAny(runtime) as V8Array
+    override fun call(function: String, params: JSParameters): JSResult = jsExecutor.await {
+        val parameters = params.content
         val rawResult = runtime.executeFunction(function, parameters)
-        val result = JSValue.from(rawResult)
-        release(parameters, rawResult)
-        result
+        parameters.close()
+        JSResult(rawResult)
     }
 
-    override fun call(function: JSFunction, params: List<JSValue>): JSValue = jsExecutor.await {
-        val parameters = JSArray(params).toAny(runtime) as V8Array
+    override fun call(function: JSFunction, params: JSParameters): JSResult = jsExecutor.await {
+        val parameters = params.content
         val rawResult = function.callBack.invoke(null, parameters)
-        val result = JSValue.from(rawResult)
-        release(parameters, rawResult)
-        result
+        parameters.close()
+        JSResult(rawResult)
     }
 
     override fun call(
         jsObject: JSObjectRef,
         function: String,
-        params: List<JSValue>
-    ): JSValue = jsExecutor.await {
-        val parameters = JSArray(params).toAny(runtime) as V8Array
+        params: JSParameters
+    ): JSResult = jsExecutor.await {
+        val parameters = params.content
         val obj = jsObject.ref as V8Object
         val rawResult = obj.executeFunction(function, parameters)
-        val result =JSValue.from(rawResult)
-        release(parameters, rawResult)
-        result
-    }
-
-    override fun call(function: String, params: List<JsonElement>): JsonElement = jsExecutor.await {
-        val parameters = params.toV8Array(runtime)
-        val rawResult = runtime.executeFunction(function, parameters)
-        val result = rawResult.toJsonElement()
-        release(parameters, rawResult)
-        result
-    }
-
-    override fun call(function: JSFunction, params: List<JsonElement>): JsonElement = jsExecutor.await {
-        val parameters = params.toV8Array(runtime)
-        val rawResult = function.callBack.invoke(null, parameters)
-        val result = rawResult.toJsonElement()
-        release(parameters, rawResult)
-        result
-    }
-
-    override fun call(
-        jsObject: JSObjectRef,
-        function: String,
-        params: List<JsonElement>
-    ): JsonElement  = jsExecutor.await {
-        val parameters = params.toV8Array(runtime)
-        val obj = jsObject.ref as V8Object
-        val rawResult = obj.executeFunction(function, parameters)
-        val result = rawResult.toJsonElement()
-        release(parameters, rawResult)
-        result
+        parameters.close()
+        JSResult(rawResult)
     }
 
     override fun evaluate(script: String): JSValue {
@@ -322,12 +290,4 @@ class J2V8Engine(private val timeoutInSeconds: Long = 120L) : JavascriptEngine {
         bridge = J2V8DataBridge(this)
     }
 
-}
-
-private fun release(vararg objects: Any) {
-    objects.forEach {
-        if (it is Releasable) {
-            it.close()
-        }
-    }
 }

@@ -1,7 +1,9 @@
 package com.segment.analytics.substrata.kotlin
 
 import com.eclipsesource.v8.*
+import com.segment.analytics.substrata.kotlin.j2v8.J2V8Engine
 import com.segment.analytics.substrata.kotlin.j2v8.add
+import com.segment.analytics.substrata.kotlin.j2v8.toAny
 import com.segment.analytics.substrata.kotlin.j2v8.toJsonElement
 import kotlinx.serialization.json.JsonElement
 import java.lang.Exception
@@ -140,46 +142,62 @@ value class JSElement(val content: JsonElement): JSValue {
 
 }
 
-open class JSParameters {
-    private val content = mutableListOf<Any>()
+open class JSParameters(private val engine: J2V8Engine) {
+    internal val content = V8Array(engine.runtime)
 
-    fun put(value: Boolean) = content.add(value)
+    fun add(value: Boolean) = content.push(value)
 
-    fun put(value: Int) = content.add(value)
+    fun add(value: Int) = content.push(value)
 
-    fun put(value: Double) = content.add(value)
+    fun add(value: Double) = content.push(value)
 
-    fun put(value: String) = content.add(value)
+    fun add(value: String) = content.push(value)
 
-    fun put(value: JsonElement) = content.add(value)
+    fun add(value: JsonElement) = content.push(value.toAny(engine.runtime))
 
-    fun put(value: JSValue) = content.add(value)
+    fun add(value: JSValue) = content.push(value.toAny(engine.runtime))
 
-    fun put(value: Any, converter: (Any) -> JSValue) {
-        put(converter(value))
+    fun addAsJSValue(value: Any, converter: (Any) -> JSValue) {
+        add(converter(value))
+    }
+
+    fun addAsJsonElement(value: Any, converter: (Any) -> JsonElement) {
+        add(converter(value))
+    }
+
+    fun release() {
+        content.close()
     }
 }
 
 class JSResult internal constructor(private val content: Any) {
-    init {
-        require(content is V8Object)
-    }
+    private var released = false
 
-    fun asJSValue() {
-        check()
-        JSValue.from(content)
-    }
-
-    fun asJsonElement() {
-        check()
-        content.toJsonElement()
-    }
-
-    private fun check() {
-        val obj = content as V8Object
-        if (obj.isReleased) {
+    fun <T> read(reader: Reader<T>) : T {
+        if (released) {
             throw Exception("JSResult has been released. Make sure you only read the value once.")
         }
+
+        val result = reader.convert(content)
+
+        if (content is Releasable) {
+            content.close()
+        }
+        released = true
+
+        return result
+    }
+
+    interface Reader<T> {
+        fun convert(obj: Any) : T
+    }
+
+    class JSValueReader : Reader<JSValue> {
+        override fun convert(obj: Any) = JSValue.from(obj)
+    }
+
+    class JsonElementReader : Reader<JsonElement> {
+        override fun convert(obj: Any) = obj.toJsonElement()
     }
 }
 

@@ -22,13 +22,9 @@ interface JavascriptEngine {
     fun export(function: JSFunction, functionName: String)
     fun extend(objectName: String, function: JSFunction, functionName: String)
 
-    fun call(function: String, params: List<JSValue> = emptyList()): JSValue
-    fun call(function: JSFunction, params: List<JSValue> = emptyList()): JSValue
-    fun call(jsObject: JSObjectRef, function: String, params: List<JSValue> = emptyList()): JSValue
-
-    fun call(function: String, params: List<JsonElement> = emptyList()): JsonElement
-    fun call(function: JSFunction, params: List<JsonElement> = emptyList()): JsonElement
-    fun call(jsObject: JSObjectRef, function: String, params: List<JsonElement> = emptyList()): JsonElement
+    fun call(function: String, params: JSParameters): JSResult
+    fun call(function: JSFunction, params: JSParameters): JSResult
+    fun call(jsObject: JSObjectRef, function: String, params: JSParameters): JSResult
 
     fun evaluate(script: String): JSValue
 
