@@ -69,31 +69,48 @@ class J2V8Engine(private val timeoutInSeconds: Long = 120L) : JavascriptEngine {
         completion(jsError)
     }
 
-    override operator fun get(key: String): JSValue {
-        val r = jsExecutor.await {
-            runtime.memScope {
-                var result: Any? = null
-                runtime.get(key).let { value ->
-                    if (value != null && value != V8.getUndefined()) {
-                        result = value
-                    } else {
-                        runtime.executeScript(key)?.let { v ->
-                            result = v
-                        }
+    override operator fun get(key: String) = jsExecutor.await {
+        runtime.memScope {
+            var result: Any = V8.getUndefined()
+            runtime.get(key).let { value ->
+                if (value != null && value != V8.getUndefined()) {
+                    result = value
+                } else {
+                    runtime.executeScript(key)?.let { v ->
+                        result = v
                     }
                 }
-                JSValue.from(result)
             }
+            JSResult(result)
         }
-        return r
     }
 
-    override operator fun set(key: String, value: JSValue) {
-        jsExecutor.sync {
-            runtime.memScope {
-                runtime.add(key, value.toAny(runtime))
-            }
-        }
+    override fun set(key: String, value: Boolean) {
+        runtime.add(key, value)
+    }
+
+    override fun set(key: String, value: Int) {
+        runtime.add(key, value)
+    }
+
+    override fun set(key: String, value: Double) {
+        runtime.add(key, value)
+    }
+
+    override operator fun set(key: String, value: String) {
+        runtime.add(key, value)
+    }
+
+    override fun set(key: String, value: JsonElement) {
+        val converted = JsonElementConverter.write(value, this)
+        require(converted is V8Value)
+        runtime.add(key, value)
+    }
+
+    override fun set(key: String, value: JSConvertible) {
+        val converted = value.convert(this)
+        require(converted is V8Value)
+        runtime.add(key, value)
     }
 
     override fun <T : JSExport> export(obj : T, objectName: String) {
@@ -149,14 +166,14 @@ class J2V8Engine(private val timeoutInSeconds: Long = 120L) : JavascriptEngine {
         }
     }
 
-    override fun call(function: String, params: JSParameters): JSResult = jsExecutor.await {
+    override fun call(function: String, params: JSArray): JSResult = jsExecutor.await {
         val parameters = params.content
         val rawResult = runtime.executeFunction(function, parameters)
         parameters.close()
         JSResult(rawResult)
     }
 
-    override fun call(function: JSFunction, params: JSParameters): JSResult = jsExecutor.await {
+    override fun call(function: JSFunction, params: JSArray): JSResult = jsExecutor.await {
         val parameters = params.content
         val rawResult = function.callBack.invoke(null, parameters)
         parameters.close()
@@ -164,21 +181,21 @@ class J2V8Engine(private val timeoutInSeconds: Long = 120L) : JavascriptEngine {
     }
 
     override fun call(
-        jsObject: JSObjectRef,
+        jsObject: JSObject,
         function: String,
-        params: JSParameters
+        params: JSArray
     ): JSResult = jsExecutor.await {
         val parameters = params.content
-        val obj = jsObject.ref as V8Object
+        val obj = jsObject.content
         val rawResult = obj.executeFunction(function, parameters)
         parameters.close()
         JSResult(rawResult)
     }
 
-    override fun evaluate(script: String): JSValue {
+    override fun evaluate(script: String): JSResult {
         val result = jsExecutor.await {
             val r = runtime.executeScript(script)
-            JSValue.from(r)
+            JSResult(r)
         }
         return result
     }
@@ -187,9 +204,9 @@ class J2V8Engine(private val timeoutInSeconds: Long = 120L) : JavascriptEngine {
      * Internal API to synchronize interactions with the V8 runtime,
      * and return value wrapped as a JSValue
      */
-    internal fun syncRunEngine(closure: (V8) -> Any?): JSValue {
+    internal fun syncRunEngine(closure: (V8) -> Any): JSResult {
         val result = syncRun(closure)
-        return jsExecutor.await { JSValue.from(result) }
+        return jsExecutor.await { JSResult(result) }
     }
 
     /*
@@ -198,7 +215,7 @@ class J2V8Engine(private val timeoutInSeconds: Long = 120L) : JavascriptEngine {
     *       ensure that any further interactions do not cause a deadlock
     * */
 
-    private fun <T> syncRun(closure: (V8) -> T?): T? {
+    private fun <T> syncRun(closure: (V8) -> T): T {
         val result = jsExecutor.await {
             closure(runtime)
         }
@@ -226,8 +243,7 @@ class J2V8Engine(private val timeoutInSeconds: Long = 120L) : JavascriptEngine {
     }
 
     // wrap exception in JSEngineError and return undefined if its a reference error
-    private fun processException(ex: Exception): JSValue {
-        var returnVal: JSValue = JSValue.JSUndefined
+    private fun processException(ex: Exception) {
         when (ex) {
             is ExecutionException -> {
                 when (val cause = ex.cause) {
@@ -242,10 +258,7 @@ class J2V8Engine(private val timeoutInSeconds: Long = 120L) : JavascriptEngine {
                     }
                     is V8ScriptCompilationException -> {
                         val type = cause.jsMessage.substringBefore(":")
-                        if (type == "ReferenceError") {
-                            // ReferenceError signifies undefined value
-                            returnVal = JSValue.JSUndefined
-                        } else {
+                        if (type != "ReferenceError") {
                             reportError(
                                 JSEngineError.EvaluationError(
                                     type,
@@ -265,7 +278,6 @@ class J2V8Engine(private val timeoutInSeconds: Long = 120L) : JavascriptEngine {
                 reportError(JSEngineError.UnknownError(ex))
             }
         }
-        return returnVal
     }
 
 
