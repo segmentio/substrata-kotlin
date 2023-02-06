@@ -1,7 +1,6 @@
 package com.segment.analytics.substrata.kotlin
 
 import com.eclipsesource.v8.*
-import com.segment.analytics.substrata.kotlin.j2v8.*
 import kotlinx.serialization.json.JsonElement
 import java.lang.Exception
 
@@ -15,10 +14,10 @@ interface JSConvertible {
      *  * string
      *  * v8 value
      */
-    fun convert(engine: J2V8Engine) : Any
+    fun convert(engine: JSEngine) : Any
 }
 
-class JSFunction(val engine: J2V8Engine, val function : JSFunctionDefinition) {
+class JSFunction(val engine: JSEngine, val function : JSFunctionDefinition) {
     internal val callBack = JavaCallback { p0, p1 ->
         val obj = if (p0 != null) JSObject(engine, p0) else null
         val params = if (p1 != null) JSArray(engine, p1) else null
@@ -29,16 +28,16 @@ class JSFunction(val engine: J2V8Engine, val function : JSFunctionDefinition) {
 typealias JSFunctionDefinition = (JSObject?, JSArray?) -> JSResult
 
 open class JSArray private constructor(){
-    private lateinit var engine: J2V8Engine
+    private lateinit var engine: JSEngine
 
     internal lateinit var content : V8Array
 
-    constructor(engine: J2V8Engine) : this() {
+    constructor(engine: JSEngine) : this() {
         this.engine = engine
         content = V8Array(engine.runtime)
     }
 
-    constructor(engine: J2V8Engine, v8Array: Any) : this() {
+    constructor(engine: JSEngine, v8Array: Any) : this() {
         require(v8Array is V8Array)
         this.engine = engine
         content = v8Array.twin()
@@ -73,16 +72,16 @@ open class JSArray private constructor(){
 }
 
 open class JSObject private constructor(){
-    private lateinit var engine: J2V8Engine
+    private lateinit var engine: JSEngine
 
     internal lateinit var content : V8Object
 
-    constructor(engine: J2V8Engine) : this() {
+    constructor(engine: JSEngine) : this() {
         this.engine = engine
         content = V8Object(engine.runtime)
     }
 
-    constructor(engine: J2V8Engine, v8Object: Any) : this() {
+    constructor(engine: JSEngine, v8Object: Any) : this() {
         require(v8Object is V8Object)
         this.engine = engine
         content = v8Object.twin()

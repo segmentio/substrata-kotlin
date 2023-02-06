@@ -1,7 +1,6 @@
-package com.segment.analytics.substrata.kotlin.j2v8
+package com.segment.analytics.substrata.kotlin
 
 import com.eclipsesource.v8.*
-import com.segment.analytics.substrata.kotlin.*
 import io.alicorn.v8.V8JavaAdapter
 import kotlinx.serialization.json.JsonElement
 import java.io.BufferedReader
@@ -19,15 +18,15 @@ import kotlin.reflect.KClass
  * Expose, Extend, Execute, Call all *can* have potential side-effects and create
  * memory so we should not use _memScope_ to manage memory automatically.
  */
-class J2V8Engine(private val timeoutInSeconds: Long = 120L) : JavascriptEngine {
+class JSEngine(private val timeoutInSeconds: Long = 120L) {
 
     companion object {
-        val shared: J2V8Engine by lazy {
-            J2V8Engine()
+        val shared: JSEngine by lazy {
+            JSEngine()
         }
     }
 
-    override lateinit var bridge: J2V8DataBridge
+    lateinit var bridge: JSDataBridge
 
     // All interaction with underlying runtime must be synchronized on the jsExecutor
     internal val jsExecutor: ExecutorService = Executors.newSingleThreadExecutor()
@@ -46,11 +45,11 @@ class J2V8Engine(private val timeoutInSeconds: Long = 120L) : JavascriptEngine {
         }
     }
 
-    override fun release() {
+    fun release() {
         runtime.release(false)
     }
 
-    override fun loadBundle(bundleStream: InputStream, completion: (JSEngineError?) -> Unit) {
+    fun loadBundle(bundleStream: InputStream, completion: (JSEngineError?) -> Unit) {
         var jsError: JSEngineError? = null
         val script: String? = BufferedReader(bundleStream.reader()).use {
             try {
@@ -69,7 +68,7 @@ class J2V8Engine(private val timeoutInSeconds: Long = 120L) : JavascriptEngine {
         completion(jsError)
     }
 
-    override operator fun get(key: String) = jsExecutor.await {
+    operator fun get(key: String) = jsExecutor.await {
         runtime.memScope {
             var result: Any = V8.getUndefined()
             runtime.get(key).let { value ->
@@ -85,53 +84,53 @@ class J2V8Engine(private val timeoutInSeconds: Long = 120L) : JavascriptEngine {
         }
     }
 
-    override fun set(key: String, value: Boolean) {
+    operator fun set(key: String, value: Boolean) {
         runtime.add(key, value)
     }
 
-    override fun set(key: String, value: Int) {
+    operator fun set(key: String, value: Int) {
         runtime.add(key, value)
     }
 
-    override fun set(key: String, value: Double) {
+    operator fun set(key: String, value: Double) {
         runtime.add(key, value)
     }
 
-    override operator fun set(key: String, value: String) {
+    operator fun set(key: String, value: String) {
         runtime.add(key, value)
     }
 
-    override fun set(key: String, value: JsonElement) {
+    operator fun set(key: String, value: JsonElement) {
         val converted = JsonElementConverter.write(value, this)
         require(converted is V8Value)
         runtime.add(key, value)
     }
 
-    override fun set(key: String, value: JSConvertible) {
+    operator fun set(key: String, value: JSConvertible) {
         val converted = value.convert(this)
         require(converted is V8Value)
         runtime.add(key, value)
     }
 
-    override fun <T : JSExport> export(obj : T, objectName: String) {
+    fun <T : JSExport> export(obj : T, objectName: String) {
         jsExecutor.sync {
             V8JavaAdapter.injectObject(objectName, obj, runtime)
         }
     }
 
-    override fun <T : JSExport> export(clazz: KClass<T>, className: String) {
+    fun <T : JSExport> export(clazz: KClass<T>, className: String) {
         jsExecutor.sync {
             V8JavaAdapter.injectClass(className, clazz.java, runtime)
         }
     }
 
-    override fun export(function: JSFunction, functionName: String) {
+    fun export(function: JSFunction, functionName: String) {
         jsExecutor.sync {
             runtime.registerJavaMethod(function.callBack, functionName)
         }
     }
 
-    override fun extend(objectName: String, function: JSFunction, functionName: String) {
+    fun extend(objectName: String, function: JSFunction, functionName: String) {
         /*
           If already exists
           -> if an object, extend it
@@ -166,21 +165,21 @@ class J2V8Engine(private val timeoutInSeconds: Long = 120L) : JavascriptEngine {
         }
     }
 
-    override fun call(function: String, params: JSArray): JSResult = jsExecutor.await {
+    fun call(function: String, params: JSArray): JSResult = jsExecutor.await {
         val parameters = params.content
         val rawResult = runtime.executeFunction(function, parameters)
         parameters.close()
         JSResult(rawResult)
     }
 
-    override fun call(function: JSFunction, params: JSArray): JSResult = jsExecutor.await {
+    fun call(function: JSFunction, params: JSArray): JSResult = jsExecutor.await {
         val parameters = params.content
         val rawResult = function.callBack.invoke(null, parameters)
         parameters.close()
         JSResult(rawResult)
     }
 
-    override fun call(
+    fun call(
         jsObject: JSObject,
         function: String,
         params: JSArray
@@ -192,7 +191,7 @@ class J2V8Engine(private val timeoutInSeconds: Long = 120L) : JavascriptEngine {
         JSResult(rawResult)
     }
 
-    override fun evaluate(script: String): JSResult {
+    fun evaluate(script: String): JSResult {
         val result = jsExecutor.await {
             val r = runtime.executeScript(script)
             JSResult(r)
@@ -299,7 +298,22 @@ class J2V8Engine(private val timeoutInSeconds: Long = 120L) : JavascriptEngine {
     }
 
     private fun setupDataBridge() {
-        bridge = J2V8DataBridge(this)
+        bridge = JSDataBridge(this)
     }
 
 }
+
+sealed class JSEngineError : Exception() {
+    object BundleNotFound : JSEngineError()
+    object UnableToLoad : JSEngineError()
+    class UnknownError(val error: Exception) : JSEngineError()
+    class EvaluationError(
+        val type: String,
+        val stackTrace: String,
+        val causeDetails: String
+    ) : JSEngineError()
+
+    class TimeoutError(val msg: String) : JSEngineError()
+}
+
+typealias JavascriptErrorHandler = (JSEngineError) -> Unit

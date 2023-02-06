@@ -1,4 +1,4 @@
-package com.segment.analytics.substrata.kotlin.j2v8
+package com.segment.analytics.substrata.kotlin
 
 import com.eclipsesource.v8.V8
 import com.eclipsesource.v8.V8Object

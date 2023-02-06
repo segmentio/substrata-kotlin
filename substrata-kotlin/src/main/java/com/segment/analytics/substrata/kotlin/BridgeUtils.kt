@@ -3,7 +3,7 @@
  * - Converting BaseEvent to V8Object and vice-versa
  * - Converting JsonObject to V8Object and vice-versa
  */
-package com.segment.analytics.substrata.kotlin.j2v8
+package com.segment.analytics.substrata.kotlin
 
 import com.eclipsesource.v8.V8
 import com.eclipsesource.v8.utils.MemoryManager

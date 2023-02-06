@@ -1,4 +1,4 @@
-package com.segment.analytics.substrata.kotlin.j2v8
+package com.segment.analytics.substrata.kotlin
 
 import com.eclipsesource.v8.V8
 import com.eclipsesource.v8.V8Array
@@ -22,13 +22,13 @@ interface JSConverter<T> {
     /**
      * convert content to a V8 compatible object
      */
-    fun write(content: T, engine: J2V8Engine) : Any
+    fun write(content: T, engine: JSEngine) : Any
 }
 
 object JsonElementConverter : JSConverter<JsonElement> {
     override fun read(obj: Any): JsonElement = obj.toJsonElement()
 
-    override fun write(content: JsonElement, engine: J2V8Engine): Any = content.toAny(engine.runtime)
+    override fun write(content: JsonElement, engine: JSEngine): Any = content.toAny(engine.runtime)
 
     private fun JsonElement.toAny(runtime: V8) : Any {
         return when (this) {
