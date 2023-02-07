@@ -1,37 +1,64 @@
 package com.segment.analytics.substrata.kotlin
 
+import com.eclipsesource.v8.V8Object
 import kotlinx.serialization.json.JsonElement
 
 class JSDataBridge(
     private val engine: JSEngine
 ) {
+    private val dictionary : V8Object = V8Object(engine.runtime)
+
     companion object {
         private const val DataBridgeKey = "DataBridge"
     }
 
-    operator fun get(key: String): JSResult = JSResult(engine["$DataBridgeKey.$key"])
-
-    fun set(key: String, value: Boolean) {
-        engine["$DataBridgeKey.$key"] = value
+    init {
+        engine.runtime.add(DataBridgeKey, dictionary)
     }
 
-    fun set(key: String, value: Int) {
-        engine["$DataBridgeKey.$key"] = value
+    operator fun get(key: String): JSResult = JSResult(dictionary[key])
+
+    operator fun set(key: String, value: Boolean) {
+        dictionary.add(key, value)
     }
 
-    fun set(key: String, value: Double) {
-        engine["$DataBridgeKey.$key"] = value
+    operator fun set(key: String, value: Int) {
+        dictionary.add(key, value)
+    }
+
+    operator fun set(key: String, value: Double)  {
+        dictionary.add(key, value)
     }
 
     operator fun set(key: String, value: String) {
-        engine["$DataBridgeKey.$key"] = value
+        dictionary.add(key, value)
     }
 
-    fun set(key: String, value: JsonElement) {
-        engine["$DataBridgeKey.$key"] = value
+    operator fun set(key: String, value: JsonElement) {
+        val converted = JsonElementConverter.write(value, engine)
+        dictionary.add(key, converted)
     }
 
-    fun set(key: String, value: JSConvertible) {
-        engine["$DataBridgeKey.$key"] = value
+    operator fun set(key: String, value: JSConvertible) {
+        val converted = value.convert(engine)
+        dictionary.add(key, converted)
+    }
+
+    fun getString(key: String): String = dictionary.getString(key)
+
+    fun getBoolean(key: String) = dictionary.getBoolean(key)
+
+    fun getInt(key: String) = dictionary.getInteger(key)
+
+    fun getDouble(key: String) = dictionary.getDouble(key)
+
+    fun getJsonElement(key: String) : JsonElement {
+        val value = this[key]
+        return value.read(JsonElementConverter)
+    }
+
+    fun <T : JSConvertible> getJSConvertible(key: String, converter: JSConverter<T>) : T {
+        val value = this[key]
+        return value.read(converter)
     }
 }

@@ -28,21 +28,16 @@ class JSEngine(private val timeoutInSeconds: Long = 120L) {
 
     lateinit var bridge: JSDataBridge
 
-    // All interaction with underlying runtime must be synchronized on the jsExecutor
-    internal val jsExecutor: ExecutorService = Executors.newSingleThreadExecutor()
-    internal lateinit var runtime: V8
+    internal var runtime: V8 = V8.createV8Runtime()
 
     // Main errorHandler that can be set by user. This allows us to handle any exceptions,
     // without worrying about propagating errors to the application and crashing it
     var errorHandler: JavascriptErrorHandler? = null
 
     init {
-        jsExecutor.await {
-            runtime = V8.createV8Runtime()
-            // Following APIs are being called on jsExecutor and should not explicitly use jsExecutor
-            setupConsole()
-            setupDataBridge()
-        }
+        // Following APIs are being called on jsExecutor and should not explicitly use jsExecutor
+        setupConsole()
+        setupDataBridge()
     }
 
     fun release() {
@@ -60,29 +55,24 @@ class JSEngine(private val timeoutInSeconds: Long = 120L) {
             }
         }
 
-        script?.let {
-            jsExecutor.sync {
-                runtime.executeScript(it)
-            }
-        }
+        runtime.executeScript(script)
         completion(jsError)
     }
 
-    operator fun get(key: String) = jsExecutor.await {
-        runtime.memScope {
-            var result: Any = V8.getUndefined()
-            runtime.get(key).let { value ->
-                if (value != null && value != V8.getUndefined()) {
-                    result = value
-                } else {
-                    runtime.executeScript(key)?.let { v ->
-                        result = v
-                    }
+    operator fun get(key: String) = runtime.memScope {
+        var result: Any = V8.getUndefined()
+        runtime.get(key).let { value ->
+            if (value != null && value != V8.getUndefined()) {
+                result = value
+            } else {
+                runtime.executeScript(key)?.let { v ->
+                    result = v
                 }
             }
-            JSResult(result)
         }
+        JSResult(result)
     }
+
 
     operator fun set(key: String, value: Boolean) {
         runtime.add(key, value)
@@ -102,32 +92,24 @@ class JSEngine(private val timeoutInSeconds: Long = 120L) {
 
     operator fun set(key: String, value: JsonElement) {
         val converted = JsonElementConverter.write(value, this)
-        require(converted is V8Value)
-        runtime.add(key, value)
+        runtime.add(key, converted)
     }
 
     operator fun set(key: String, value: JSConvertible) {
         val converted = value.convert(this)
-        require(converted is V8Value)
-        runtime.add(key, value)
+        runtime.add(key, converted)
     }
 
     fun <T : JSExport> export(obj : T, objectName: String) {
-        jsExecutor.sync {
-            V8JavaAdapter.injectObject(objectName, obj, runtime)
-        }
+        V8JavaAdapter.injectObject(objectName, obj, runtime)
     }
 
     fun <T : JSExport> export(clazz: KClass<T>, className: String) {
-        jsExecutor.sync {
-            V8JavaAdapter.injectClass(className, clazz.java, runtime)
-        }
+        V8JavaAdapter.injectClass(className, clazz.java, runtime)
     }
 
     fun export(function: JSFunction, functionName: String) {
-        jsExecutor.sync {
-            runtime.registerJavaMethod(function.callBack, functionName)
-        }
+        runtime.registerJavaMethod(function.callBack, functionName)
     }
 
     fun extend(objectName: String, function: JSFunction, functionName: String) {
@@ -137,88 +119,61 @@ class JSEngine(private val timeoutInSeconds: Long = 120L) {
           -> else, reportError
           else create it
          */
-        jsExecutor.sync {
-            val v8Obj: V8Object? = runtime.get(objectName).let { value ->
-                when (value) {
-                    null, V8.getUndefined() -> {
-                        V8Object(runtime)
-                    }
-                    is V8Object -> {
-                        value
-                    }
-                    else -> {
-                        reportError(
-                            JSEngineError.EvaluationError(
-                                "TypeError",
-                                "attempting to add fn to a non-object value",
-                                "$functionName cannot be added to $objectName"
-                            )
+        val v8Obj: V8Object? = runtime.get(objectName).let { value ->
+            when (value) {
+                null, V8.getUndefined() -> {
+                    V8Object(runtime)
+                }
+                is V8Object -> {
+                    value
+                }
+                else -> {
+                    reportError(
+                        JSEngineError.EvaluationError(
+                            "TypeError",
+                            "attempting to add fn to a non-object value",
+                            "$functionName cannot be added to $objectName"
                         )
-                        null
-                    }
+                    )
+                    null
                 }
             }
-            v8Obj?.let {
-                it.registerJavaMethod(function.callBack, functionName)
-                runtime.add(objectName, it)
-            }
+        }
+        v8Obj?.let {
+            it.registerJavaMethod(function.callBack, functionName)
+            runtime.add(objectName, it)
         }
     }
 
-    fun call(function: String, params: JSArray): JSResult = jsExecutor.await {
+    fun call(function: String, params: JSArray): JSResult {
         val parameters = params.content
         val rawResult = runtime.executeFunction(function, parameters)
         parameters.close()
-        JSResult(rawResult)
+        return JSResult(rawResult)
     }
 
-    fun call(function: JSFunction, params: JSArray): JSResult = jsExecutor.await {
+    fun call(function: JSFunction, params: JSArray): JSResult {
         val parameters = params.content
         val rawResult = function.callBack.invoke(null, parameters)
         parameters.close()
-        JSResult(rawResult)
+        return JSResult(rawResult)
     }
 
     fun call(
         jsObject: JSObject,
         function: String,
         params: JSArray
-    ): JSResult = jsExecutor.await {
+    ): JSResult {
         val parameters = params.content
         val obj = jsObject.content
         val rawResult = obj.executeFunction(function, parameters)
         parameters.close()
-        JSResult(rawResult)
+        return JSResult(rawResult)
     }
 
     fun evaluate(script: String): JSResult {
-        val result = jsExecutor.await {
-            val r = runtime.executeScript(script)
-            JSResult(r)
-        }
-        return result
-    }
-
-    /**
-     * Internal API to synchronize interactions with the V8 runtime,
-     * and return value wrapped as a JSValue
-     */
-    internal fun syncRunEngine(closure: (V8) -> Any): JSResult {
-        val result = syncRun(closure)
-        return jsExecutor.await { JSResult(result) }
-    }
-
-    /*
-    * PRIVATE APIs
-    * Note: Since all public APIs are implicitly synchronized on the jsExecutor (single-threaded)
-    *       ensure that any further interactions do not cause a deadlock
-    * */
-
-    private fun <T> syncRun(closure: (V8) -> T): T {
-        val result = jsExecutor.await {
-            closure(runtime)
-        }
-        return result
+        val r = runtime.executeScript(script)
+        return JSResult(r)
     }
 
     private fun reportError(error: JSEngineError) {

@@ -115,7 +115,7 @@ open class JSObject private constructor(){
     fun release() = content.close()
 }
 
-class JSResult internal constructor(private val content: Any) {
+class JSResult internal constructor(internal val content: Any) {
     private var released = false
 
     fun <T> read(converter: JSConverter<T>) : T {
