@@ -39,8 +39,8 @@ class JSDataBridge(
         dictionary.add(key, converted)
     }
 
-    operator fun set(key: String, value: JSConvertible) {
-        val converted = value.convert(engine)
+    fun <T: JSConvertible> set(key: String, value: T, converter: JSConverter<T>) {
+        val converted = converter.write(value, engine)
         dictionary.add(key, converted)
     }
 

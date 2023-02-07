@@ -4,18 +4,7 @@ import com.eclipsesource.v8.*
 import kotlinx.serialization.json.JsonElement
 import java.lang.Exception
 
-interface JSConvertible {
-    /**
-     * convert an object to target type.
-     * the object can be any of the following types:
-     *  * int
-     *  * boolean
-     *  * double
-     *  * string
-     *  * v8 value
-     */
-    fun convert(engine: JSEngine) : Any
-}
+interface JSConvertible
 
 class JSFunction(val engine: JSEngine, val function : JSFunctionDefinition) {
     internal val callBack = JavaCallback { p0, p1 ->
@@ -25,7 +14,7 @@ class JSFunction(val engine: JSEngine, val function : JSFunctionDefinition) {
     }
 }
 
-typealias JSFunctionDefinition = (JSObject?, JSArray?) -> JSResult
+typealias JSFunctionDefinition = (JSObject?, JSArray?) -> Any?
 
 open class JSArray private constructor(){
     private lateinit var engine: JSEngine
@@ -63,12 +52,34 @@ open class JSArray private constructor(){
         content.push(JsonElementConverter.write(value, engine))
     }
 
-    fun add(value: JSConvertible) {
-        val converted = value.convert(engine)
+    fun <T: JSConvertible> add(value: T, converter: JSConverter<T>) {
+        val converted = converter.write(value, engine)
         content.push(converted)
     }
 
+    fun getBoolean(index: Int) = content.getBoolean(index)
+
+    fun getInt(index: Int) = content.getInteger(index)
+
+    fun getDouble(index: Int) = content.getDouble(index)
+
+    fun getString(index: Int): String = content.getString(index)
+
+    fun getJsonElement(index: Int) = JsonElementConverter.read(content[index])
+
+    operator fun get(index: Int): Any = content[index]
+
+    fun <T> getJSConvertible(index: Int, converter: JSConverter<T>) : T = converter.read(content[index])
+
     fun release() = content.close()
+
+    companion object {
+        fun create(engine: JSEngine, closure: (JSArray) -> Unit) : JSArray {
+            val array = JSArray(engine)
+            closure(array)
+            return array
+        }
+    }
 }
 
 open class JSObject private constructor(){
@@ -107,16 +118,44 @@ open class JSObject private constructor(){
         content.add(key, JsonElementConverter.write(value, engine))
     }
 
-    fun add(key: String, value: JSConvertible) {
-        val converted = value.convert(engine)
+    fun <T: JSConvertible> add(key: String, value: T, converter: JSConverter<T>) {
+        val converted = converter.write(value, engine)
         content.add(key, converted)
     }
 
+    fun getBoolean(key: String) = content.getBoolean(key)
+
+    fun getInt(key: String) = content.getInteger(key)
+
+    fun getDouble(key: String) = content.getDouble(key)
+
+    fun getString(key: String): String = content.getString(key)
+
+    fun getJsonElement(key: String) = JsonElementConverter.read(content[key])
+
+    operator fun get(key: String): Any = content[key]
+
+    fun <T> getJSConvertible(key: String, converter: JSConverter<T>) : T = converter.read(content[key])
+
     fun release() = content.close()
+
+    companion object {
+        fun create(engine: JSEngine, closure: (JSObject) -> Unit) : JSObject {
+            val obj = JSObject(engine)
+            closure(obj)
+            return obj
+        }
+    }
 }
 
-class JSResult internal constructor(internal val content: Any) {
+open class JSResult internal constructor(content: Any?) {
     private var released = false
+
+    val content: Any
+
+    init {
+        this.content = content ?: V8.getUndefined()
+    }
 
     fun <T> read(converter: JSConverter<T>) : T {
         if (released) {

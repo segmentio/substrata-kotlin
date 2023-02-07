@@ -20,10 +20,10 @@ internal fun V8Object.add(key: String, value: Any?) {
             add(key, value)
         }
         is Float -> {
-            add(key, value as Double)
+            add(key, value.toDouble())
         }
         is Number -> {
-            add(key, value as Double)
+            add(key, value.toDouble())
         }
         is Boolean -> {
             add(key, value)

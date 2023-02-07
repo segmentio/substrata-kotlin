@@ -1,12 +1,11 @@
 package com.segment.analytics.substrata.kotlin
 
-import com.eclipsesource.v8.*
+import com.eclipsesource.v8.V8
+import com.eclipsesource.v8.V8Object
 import io.alicorn.v8.V8JavaAdapter
 import kotlinx.serialization.json.JsonElement
 import java.io.BufferedReader
-import java.io.IOException
 import java.io.InputStream
-import java.util.concurrent.*
 import kotlin.reflect.KClass
 
 /**
@@ -18,21 +17,11 @@ import kotlin.reflect.KClass
  * Expose, Extend, Execute, Call all *can* have potential side-effects and create
  * memory so we should not use _memScope_ to manage memory automatically.
  */
-class JSEngine(private val timeoutInSeconds: Long = 120L) {
-
-    companion object {
-        val shared: JSEngine by lazy {
-            JSEngine()
-        }
-    }
+class JSEngine internal constructor(private val timeoutInSeconds: Long = 120L) {
 
     lateinit var bridge: JSDataBridge
 
     internal var runtime: V8 = V8.createV8Runtime()
-
-    // Main errorHandler that can be set by user. This allows us to handle any exceptions,
-    // without worrying about propagating errors to the application and crashing it
-    var errorHandler: JavascriptErrorHandler? = null
 
     init {
         // Following APIs are being called on jsExecutor and should not explicitly use jsExecutor
@@ -44,19 +33,9 @@ class JSEngine(private val timeoutInSeconds: Long = 120L) {
         runtime.release(false)
     }
 
-    fun loadBundle(bundleStream: InputStream, completion: (JSEngineError?) -> Unit) {
-        var jsError: JSEngineError? = null
-        val script: String? = BufferedReader(bundleStream.reader()).use {
-            try {
-                it.readText()
-            } catch (e: IOException) {
-                jsError = JSEngineError.UnableToLoad
-                null
-            }
-        }
-
+    fun loadBundle(bundleStream: InputStream) {
+        val script: String = BufferedReader(bundleStream.reader()).readText()
         runtime.executeScript(script)
-        completion(jsError)
     }
 
     operator fun get(key: String) = runtime.memScope {
@@ -64,11 +43,11 @@ class JSEngine(private val timeoutInSeconds: Long = 120L) {
         runtime.get(key).let { value ->
             if (value != null && value != V8.getUndefined()) {
                 result = value
-            } else {
+            } else try {
                 runtime.executeScript(key)?.let { v ->
                     result = v
                 }
-            }
+            } catch (_ : Exception) {}
         }
         JSResult(result)
     }
@@ -95,8 +74,8 @@ class JSEngine(private val timeoutInSeconds: Long = 120L) {
         runtime.add(key, converted)
     }
 
-    operator fun set(key: String, value: JSConvertible) {
-        val converted = value.convert(this)
+    fun <T: JSConvertible> set(key: String, value: T, converter: JSConverter<T>) {
+        val converted = converter.write(value, this)
         runtime.add(key, converted)
     }
 
@@ -127,16 +106,10 @@ class JSEngine(private val timeoutInSeconds: Long = 120L) {
                 is V8Object -> {
                     value
                 }
-                else -> {
-                    reportError(
-                        JSEngineError.EvaluationError(
-                            "TypeError",
-                            "attempting to add fn to a non-object value",
-                            "$functionName cannot be added to $objectName"
-                        )
+                else ->
+                    throw Exception(
+                        "attempting to add fn to a non-object value. $functionName cannot be added to $objectName"
                     )
-                    null
-                }
             }
         }
         v8Obj?.let {
@@ -145,93 +118,35 @@ class JSEngine(private val timeoutInSeconds: Long = 120L) {
         }
     }
 
-    fun call(function: String, params: JSArray): JSResult {
-        val parameters = params.content
+    fun call(function: String, params: JSArray? = null): JSResult {
+        val parameters = params?.content
         val rawResult = runtime.executeFunction(function, parameters)
-        parameters.close()
+        parameters?.close()
         return JSResult(rawResult)
     }
 
-    fun call(function: JSFunction, params: JSArray): JSResult {
-        val parameters = params.content
+    fun call(function: JSFunction, params: JSArray? = null): JSResult {
+        val parameters = params?.content
         val rawResult = function.callBack.invoke(null, parameters)
-        parameters.close()
+        parameters?.close()
         return JSResult(rawResult)
     }
 
     fun call(
         jsObject: JSObject,
         function: String,
-        params: JSArray
+        params: JSArray? = null
     ): JSResult {
-        val parameters = params.content
+        val parameters = params?.content
         val obj = jsObject.content
         val rawResult = obj.executeFunction(function, parameters)
-        parameters.close()
+        parameters?.close()
         return JSResult(rawResult)
     }
 
     fun evaluate(script: String): JSResult {
         val r = runtime.executeScript(script)
         return JSResult(r)
-    }
-
-    private fun reportError(error: JSEngineError) {
-        errorHandler?.let { it(error) }
-    }
-
-    private fun ExecutorService.sync(runnable: Runnable) {
-        try {
-            submit(runnable).get(timeoutInSeconds, TimeUnit.SECONDS)
-        } catch (ex: Exception) {
-            processException(ex)
-        }
-    }
-
-    private fun <T> ExecutorService.await(callable: Callable<T>): T {
-        return try {
-            submit(callable).get(timeoutInSeconds, TimeUnit.SECONDS)
-        } catch (ex: Exception) {
-            processException(ex) as T
-        }
-    }
-
-    // wrap exception in JSEngineError and return undefined if its a reference error
-    private fun processException(ex: Exception) {
-        when (ex) {
-            is ExecutionException -> {
-                when (val cause = ex.cause) {
-                    is V8ScriptExecutionException -> {
-                        reportError(
-                            JSEngineError.EvaluationError(
-                                cause.jsMessage,
-                                cause.jsStackTrace,
-                                cause.toString()
-                            )
-                        )
-                    }
-                    is V8ScriptCompilationException -> {
-                        val type = cause.jsMessage.substringBefore(":")
-                        if (type != "ReferenceError") {
-                            reportError(
-                                JSEngineError.EvaluationError(
-                                    type,
-                                    cause.jsStackTrace,
-                                    cause.toString()
-                                )
-                            )
-                        }
-                    }
-                    else -> reportError(JSEngineError.UnknownError(ex))
-                }
-            }
-            is TimeoutException -> {
-                reportError(JSEngineError.TimeoutError(ex.message ?: ""))
-            }
-            else -> {
-                reportError(JSEngineError.UnknownError(ex))
-            }
-        }
     }
 
 
@@ -255,20 +170,4 @@ class JSEngine(private val timeoutInSeconds: Long = 120L) {
     private fun setupDataBridge() {
         bridge = JSDataBridge(this)
     }
-
 }
-
-sealed class JSEngineError : Exception() {
-    object BundleNotFound : JSEngineError()
-    object UnableToLoad : JSEngineError()
-    class UnknownError(val error: Exception) : JSEngineError()
-    class EvaluationError(
-        val type: String,
-        val stackTrace: String,
-        val causeDetails: String
-    ) : JSEngineError()
-
-    class TimeoutError(val msg: String) : JSEngineError()
-}
-
-typealias JavascriptErrorHandler = (JSEngineError) -> Unit
