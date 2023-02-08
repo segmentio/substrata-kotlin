@@ -100,10 +100,10 @@ class EngineTests {
     fun testExtend() {
         var data = "Something"
         scope.sync(exceptionHandler) { engine ->
-            engine.extend("foobar", JSFunction(engine) { obj, params ->
+            engine.extend("foobar", "method1", JSFunction(engine) { obj, params ->
                 data = "Something new"
                 null
-            }, "method1")
+            })
             engine.evaluate("foobar.method1()")
         }
         assertEquals("Something new", data)
@@ -118,10 +118,10 @@ class EngineTests {
         var data = "Something"
         scope.sync { engine ->
             engine.loadBundle(script.byteInputStream())
-            engine.extend("x", JSFunction(engine) { obj, params ->
+            engine.extend("x", "method1", JSFunction(engine) { obj, params ->
                 data = "Something new"
                 null
-            }, "method1")
+            })
             engine.evaluate("x.method1()")
         }
         assertEquals("Something new", data)
@@ -190,8 +190,8 @@ class EngineTests {
         }
         val bucket1 = Bucket()
         scope.sync {engine ->
-            engine.export(Bucket::class, "Bucket")
-            engine.export(bucket1, "bucketMain")
+            engine.export( "Bucket", Bucket::class)
+            engine.export( "bucketMain", bucket1)
             engine.evaluate("""var bucketTmp = new Bucket();""")
 
             val test0 = engine.evaluate("bucketMain.isEmpty() && bucketTmp.isEmpty()")
@@ -207,9 +207,9 @@ class EngineTests {
     @Test
     fun testExposeMethod() {
         scope.sync { engine ->
-            engine.export(JSFunction(engine) { obj, params ->
+            engine.export("add", JSFunction(engine) { obj, params ->
                 params?.getInt(0)?.plus(params.getInt(1))
-            }, "add")
+            })
 
             val ret = engine.call("add", JSArray.create(engine) {
                 it.add(10)

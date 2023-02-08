@@ -79,26 +79,26 @@ class JSEngine internal constructor(private val timeoutInSeconds: Long = 120L) {
         runtime.add(key, converted)
     }
 
-    fun <T : JSExport> export(obj : T, objectName: String) {
+    fun <T : JSExport> export(objectName: String, obj : T) {
         V8JavaAdapter.injectObject(objectName, obj, runtime)
     }
 
-    fun <T : JSExport> export(clazz: KClass<T>, className: String) {
+    fun <T : JSExport> export(className: String, clazz: KClass<T>) {
         V8JavaAdapter.injectClass(className, clazz.java, runtime)
     }
 
-    fun export(function: JSFunction, functionName: String) {
+    fun export(functionName: String, function: JSFunction) {
         runtime.registerJavaMethod(function.callBack, functionName)
     }
 
-    fun extend(objectName: String, function: JSFunction, functionName: String) {
+    fun extend(objectName: String, functionName: String, function: JSFunction) {
         /*
           If already exists
           -> if an object, extend it
           -> else, reportError
           else create it
          */
-        val v8Obj: V8Object? = runtime.get(objectName).let { value ->
+        val v8Obj: V8Object = runtime.get(objectName).let { value ->
             when (value) {
                 null, V8.getUndefined() -> {
                     V8Object(runtime)
@@ -112,7 +112,7 @@ class JSEngine internal constructor(private val timeoutInSeconds: Long = 120L) {
                     )
             }
         }
-        v8Obj?.let {
+        v8Obj.let {
             it.registerJavaMethod(function.callBack, functionName)
             runtime.add(objectName, it)
         }
