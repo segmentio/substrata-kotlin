@@ -2,19 +2,119 @@ package com.segment.analytics.substrata.kotlin
 
 import com.eclipsesource.v8.*
 import kotlinx.serialization.json.JsonElement
-import java.lang.Exception
+import kotlin.Exception
+
+interface Releasable {
+    fun release()
+}
 
 interface JSConvertible
 
-class JSFunction(val engine: JSEngine, val function : JSFunctionDefinition) {
-    internal val callBack = JavaCallback { p0, p1 ->
-        val obj = if (p0 != null) JSObject(engine, p0) else null
-        val params = if (p1 != null) JSArray(engine, p1) else null
-        function(obj, params)
+open class JSValue(
+    val ref: Long,
+    val context: JSContext
+) : Releasable {
+
+    init {
+        context.notifyReferenceCreated(this)
+    }
+
+    override fun release() {
+        context.notifyReferenceReleased(this)
     }
 }
 
-typealias JSFunctionDefinition = (JSObject?, JSArray?) -> Any?
+fun JSValue.asString() =
+    if (QuickJS.isString(this.ref)) QuickJS.getString(this.ref)
+    else null
+
+
+fun JSValue.asBoolean() =
+    if (QuickJS.isBool(this.ref)) QuickJS.getBool(this.ref)
+    else null
+
+fun JSValue.asInt() =
+    if (QuickJS.isNumber(this.ref)) QuickJS.getInt(this.ref)
+    else null
+
+fun JSValue.asDouble() =
+    if (QuickJS.isNumber(this.ref)) QuickJS.getFloat64(this.ref)
+    else null
+
+inline fun <reified T> JSValue.asArray(): Array<T>? {
+    if (!QuickJS.isArray(this.ref)) return null
+
+    val sizeRef = QuickJS.getProperty(context.ref, this.ref, "length")
+    val size: Int = get(context, sizeRef)
+    val result = Array(size) { i ->
+        val valueRef = QuickJS.getProperty(context.ref, this.ref, i)
+        val value: T = get(context, valueRef)
+        value
+    }
+
+    return result
+}
+
+inline fun <reified T> JSValue.asMap(): Map<String, T> {
+
+}
+
+inline fun <reified T> get(context: JSContext, ref: Long): T {
+    val value = JSValue(ref, context)
+    val result = when(T::class) {
+        String::class -> value.asString()
+        Boolean::class -> value.asBoolean()
+        Int::class -> value.asInt()
+        Double::class -> value.asDouble()
+        else -> null
+    }
+    return result as T
+}
+
+fun String.toJSValue(context: JSContext): JSValue {
+    val ref = QuickJS.newString(context.ref, this)
+    return JSValue(ref, context)
+}
+
+fun Boolean.toJSValue(context: JSContext): JSValue {
+    val ref = QuickJS.newBool(context.ref, this)
+    return JSValue(ref, context)
+}
+
+fun Int.toJSValue(context: JSContext): JSValue {
+    val ref = QuickJS.newInt(context.ref, this)
+    return JSValue(ref, context)
+}
+
+fun Double.toJSValue(context: JSContext): JSValue {
+    val ref = QuickJS.newFloat64(context.ref, this)
+    return JSValue(ref, context)
+}
+
+fun <T: Any> Array<T>.toJSValue(context: JSContext): JSValue {
+    val ref = QuickJS.newArray(context.ref)
+    for ((index, value) in this.withIndex()) {
+        QuickJS.setProperty(context.ref, ref, index, value.toJSValue(context).ref)
+    }
+    return JSValue(ref, context)
+}
+
+fun <T: Any> Map<String, T>.toJSValue(context: JSContext): JSValue {
+    val ref = QuickJS.newObject(context.ref)
+    for ((key, value) in this) {
+        QuickJS.setProperty(context.ref, ref, key, value.toJSValue(context).ref)
+    }
+    return JSValue(ref, context)
+}
+
+fun Any.toJSValue(context: JSContext): JSValue = when(this) {
+    is String -> this.toJSValue(context)
+    is Boolean -> this.toJSValue(context)
+    is Int -> this.toJSValue(context)
+    is Double -> this.toJSValue(context)
+    is Array<*> -> this.toJSValue(context)
+    else -> throw Exception("/** TODO: */")
+}
 
 open class JSArray private constructor(){
     private lateinit var engine: JSEngine
@@ -82,24 +182,12 @@ open class JSArray private constructor(){
     }
 }
 
-open class JSObject private constructor(){
-    private lateinit var engine: JSEngine
-
-    internal lateinit var content : V8Object
-
-    constructor(engine: JSEngine) : this() {
-        this.engine = engine
-        content = V8Object(engine.runtime)
-    }
-
-    constructor(engine: JSEngine, v8Object: Any) : this() {
-        require(v8Object is V8Object)
-        this.engine = engine
-        content = v8Object.twin()
-    }
+open class JSObject(
+    val context: JSContext,
+    val pointer: Long) {
 
     fun add(key: String, value: Int) {
-        content.add(key, value)
+        context.setProperty(key, value)
     }
 
     fun add(key: String, value: Boolean) {
@@ -147,6 +235,16 @@ open class JSObject private constructor(){
         }
     }
 }
+
+class JSFunction(val engine: JSEngine, val function : JSFunctionDefinition) {
+    internal val callBack = JavaCallback { p0, p1 ->
+        val obj = if (p0 != null) JSObject(engine, p0) else null
+        val params = if (p1 != null) JSArray(engine, p1) else null
+        function(obj, params)
+    }
+}
+
+typealias JSFunctionDefinition = (JSObject?, JSArray?) -> Any?
 
 open class JSResult internal constructor(content: Any?) {
     private var released = false
