@@ -34,5 +34,7 @@ class QuickJS {
         external fun isObject(ref: Long): Boolean
         external fun newObject(context: Long): Long
         external fun getType(ref: Long): Int
+        external fun getOwnPropertyNames(context: Long, ref: Long): Array<String>
+        external fun call(context: Long, function: Long, obj: Long, args: Array<Long>): Long
     }
 }

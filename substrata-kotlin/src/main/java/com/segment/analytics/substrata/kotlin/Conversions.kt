@@ -22,7 +22,7 @@ interface JSConverter<T> {
     /**
      * convert content to a V8 compatible object
      */
-    fun write(content: T, engine: JSEngine) : Any
+    fun write(content: T) : Any
 }
 
 object JsonElementConverter : JSConverter<JsonElement> {

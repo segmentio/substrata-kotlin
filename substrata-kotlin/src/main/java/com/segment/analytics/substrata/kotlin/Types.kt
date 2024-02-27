@@ -1,6 +1,7 @@
 package com.segment.analytics.substrata.kotlin
 
 import com.eclipsesource.v8.*
+import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
 import kotlin.Exception
 
@@ -41,22 +42,32 @@ fun JSValue.asDouble() =
     if (QuickJS.isNumber(this.ref)) QuickJS.getFloat64(this.ref)
     else null
 
-inline fun <reified T> JSValue.asArray(): Array<T>? {
+fun JSValue.asJSArray(): JSArray? {
     if (!QuickJS.isArray(this.ref)) return null
 
     val sizeRef = QuickJS.getProperty(context.ref, this.ref, "length")
     val size: Int = get(context, sizeRef)
-    val result = Array(size) { i ->
+    val result = MutableList(size) { i ->
         val valueRef = QuickJS.getProperty(context.ref, this.ref, i)
-        val value: T = get(context, valueRef)
+        val value = getAny(context, valueRef)
         value
     }
 
-    return result
+    return JSArray(result)
 }
 
-inline fun <reified T> JSValue.asMap(): Map<String, T> {
+fun JSValue.asJSObject(): JSObject? {
+    if (!QuickJS.isObject(this.ref)) return null
 
+    val names = QuickJS.getOwnPropertyNames(context.ref, ref)
+    val result = mutableMapOf<String, Any?>()
+    for (name in names) {
+        val valueRef = QuickJS.getProperty(context.ref, this.ref, name)
+        val value = getAny(context, valueRef)
+        result[name] = value
+    }
+
+    return JSObject(result)
 }
 
 inline fun <reified T> get(context: JSContext, ref: Long): T {
@@ -69,6 +80,18 @@ inline fun <reified T> get(context: JSContext, ref: Long): T {
         else -> null
     }
     return result as T
+}
+
+fun getAny(context: JSContext, ref: Long): Any? {
+    val type = QuickJS.getType(ref)
+    val value = JSValue(ref, context)
+    return when (type) {
+        QuickJS.TYPE_STRING -> value.asString()
+        QuickJS.TYPE_BOOLEAN -> value.asBoolean()
+        QuickJS.TYPE_INT -> value.asInt()
+        QuickJS.TYPE_FLOAT64 -> value.asDouble()
+        else -> {}
+    }
 }
 
 fun String.toJSValue(context: JSContext): JSValue {
@@ -91,17 +114,17 @@ fun Double.toJSValue(context: JSContext): JSValue {
     return JSValue(ref, context)
 }
 
-fun <T: Any> Array<T>.toJSValue(context: JSContext): JSValue {
+fun JSArray.toJSValue(context: JSContext): JSValue {
     val ref = QuickJS.newArray(context.ref)
-    for ((index, value) in this.withIndex()) {
+    for ((index, value) in content.withIndex()) {
         QuickJS.setProperty(context.ref, ref, index, value.toJSValue(context).ref)
     }
     return JSValue(ref, context)
 }
 
-fun <T: Any> Map<String, T>.toJSValue(context: JSContext): JSValue {
+fun JSObject.toJSValue(context: JSContext): JSValue {
     val ref = QuickJS.newObject(context.ref)
-    for ((key, value) in this) {
+    for ((key, value) in content) {
         QuickJS.setProperty(context.ref, ref, key, value.toJSValue(context).ref)
     }
     return JSValue(ref, context)
@@ -116,135 +139,102 @@ fun Any.toJSValue(context: JSContext): JSValue = when(this) {
     else -> throw Exception("/** TODO: */")
 }
 
-open class JSArray private constructor(){
-    private lateinit var engine: JSEngine
-
-    internal lateinit var content : V8Array
-
-    constructor(engine: JSEngine) : this() {
-        this.engine = engine
-        content = V8Array(engine.runtime)
-    }
-
-    constructor(engine: JSEngine, v8Array: Any) : this() {
-        require(v8Array is V8Array)
-        this.engine = engine
-        content = v8Array.twin()
-    }
+class JSArray(
+    val content: MutableList<Any?> = mutableListOf()
+) {
 
     fun add(value: Boolean) {
-        content.push(value)
+        content.add(value)
     }
 
     fun add(value: Int) {
-        content.push(value)
+        content.add(value)
     }
 
     fun add(value: Double) {
-        content.push(value)
+        content.add(value)
     }
 
     fun add(value: String) {
-        content.push(value)
+        content.add(value)
     }
 
     fun add(value: JsonElement) {
-        content.push(JsonElementConverter.write(value, engine))
+        content.add(JsonElementConverter.write(value))
     }
 
     fun <T: JSConvertible> add(value: T, converter: JSConverter<T>) {
-        val converted = converter.write(value, engine)
-        content.push(converted)
+        val converted = converter.write(value)
+        content.add(converted)
     }
 
-    fun getBoolean(index: Int) = content.getBoolean(index)
+    fun getBoolean(index: Int) = content[index] as? Boolean
 
-    fun getInt(index: Int) = content.getInteger(index)
+    fun getInt(index: Int) = content[index] as? Int
 
-    fun getDouble(index: Int) = content.getDouble(index)
+    fun getDouble(index: Int) = content[index] as? Double
 
-    fun getString(index: Int): String = content.getString(index)
+    fun getString(index: Int) = content[index] as? String
 
     fun getJsonElement(index: Int) = JsonElementConverter.read(content[index])
 
     operator fun get(index: Int): Any = content[index]
 
     fun <T> getJSConvertible(index: Int, converter: JSConverter<T>) : T = converter.read(content[index])
-
-    fun release() = content.close()
-
-    companion object {
-        fun create(engine: JSEngine, closure: (JSArray) -> Unit) : JSArray {
-            val array = JSArray(engine)
-            closure(array)
-            return array
-        }
-    }
 }
 
-open class JSObject(
-    val context: JSContext,
-    val pointer: Long) {
+class JSObject(
+    val content: MutableMap<String, Any?> = mutableMapOf()
+) {
 
     fun add(key: String, value: Int) {
-        context.setProperty(key, value)
+        content[key] = value
     }
 
     fun add(key: String, value: Boolean) {
-        content.add(key, value)
+        content[key] = value
     }
 
     fun add(key: String, value: Double) {
-        content.add(key, value)
+        content[key] = value
     }
 
     fun add(key: String, value: String) {
-        content.add(key, value)
+        content[key] = value
     }
 
     fun add(key: String, value: JsonElement) {
-        content.add(key, JsonElementConverter.write(value, engine))
+        content[key] = JsonElementConverter.write(value)
     }
 
     fun <T: JSConvertible> add(key: String, value: T, converter: JSConverter<T>) {
-        val converted = converter.write(value, engine)
-        content.add(key, converted)
+        content[key] = converter.write(value)
     }
 
-    fun getBoolean(key: String) = content.getBoolean(key)
+    fun getBoolean(key: String) = content[key] as? Boolean
 
-    fun getInt(key: String) = content.getInteger(key)
+    fun getInt(key: String) = content[key] as? Int
 
-    fun getDouble(key: String) = content.getDouble(key)
+    fun getDouble(key: String) = content[key] as? Double
 
-    fun getString(key: String): String = content.getString(key)
+    fun getString(key: String) = content[key] as? String
 
-    fun getJsonElement(key: String) = JsonElementConverter.read(content[key])
+    fun getJsonElement(key: String) = content[key]?.let { JsonElementConverter.read(it) }
 
-    operator fun get(key: String): Any = content[key]
+    operator fun get(key: String) = content[key]
 
-    fun <T> getJSConvertible(key: String, converter: JSConverter<T>) : T = converter.read(content[key])
+    fun <T> getJSConvertible(key: String, converter: JSConverter<T>) = content[key]?.let { converter.read(it) }
+}
 
-    fun release() = content.close()
-
-    companion object {
-        fun create(engine: JSEngine, closure: (JSObject) -> Unit) : JSObject {
-            val obj = JSObject(engine)
-            closure(obj)
-            return obj
-        }
+class JSFunction(ref: Long, context: JSContext) : JSValue(ref, context) {
+    operator fun invoke(obj: JSValue, vararg params: JSValue): Any? {
+        // TODO: check if the same context
+        val refs = params.map { it.ref }.toTypedArray()
+        val ret = QuickJS.call(context.ref, ref, obj.ref, refs)
+        return getAny(context, ret)
     }
 }
 
-class JSFunction(val engine: JSEngine, val function : JSFunctionDefinition) {
-    internal val callBack = JavaCallback { p0, p1 ->
-        val obj = if (p0 != null) JSObject(engine, p0) else null
-        val params = if (p1 != null) JSArray(engine, p1) else null
-        function(obj, params)
-    }
-}
-
-typealias JSFunctionDefinition = (JSObject?, JSArray?) -> Any?
 
 open class JSResult internal constructor(content: Any?) {
     private var released = false
