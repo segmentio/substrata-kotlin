@@ -1,5 +1,7 @@
 package com.segment.analytics.substrata.kotlin
 
+import java.lang.IllegalStateException
+
 class QuickJS {
 
     companion object {
@@ -13,7 +15,16 @@ class QuickJS {
         const val TYPE_EXCEPTION = 6
         const val TYPE_FLOAT64 = 7
 
+        fun createJSRuntime(): JSRuntime {
+            val ref = newRuntime()
+            if (ref == 0L) {
+                throw IllegalStateException("Failed to create JSRuntime")
+            }
+            return JSRuntime(ref)
+        }
+
         external fun freeValue(ref: Long, ref1: Long)
+        external fun freeRuntime(runtime: Long)
         external fun isBool(ref: Long): Boolean
         external fun getBool(ref: Long): Boolean
         external fun newBool(context: Long, value: Boolean): Long
@@ -33,8 +44,11 @@ class QuickJS {
         external fun getProperty(context: Long, ref: Long, name: String): Long
         external fun isObject(ref: Long): Boolean
         external fun newObject(context: Long): Long
+        external fun getNull(context: Long): Long
         external fun getType(ref: Long): Int
         external fun getOwnPropertyNames(context: Long, ref: Long): Array<String>
         external fun call(context: Long, function: Long, obj: Long, args: Array<Long>): Long
+        external fun newRuntime(): Long
+        external fun newContext(runtime: Long): Long
     }
 }

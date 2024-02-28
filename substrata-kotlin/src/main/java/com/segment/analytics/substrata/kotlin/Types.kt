@@ -1,9 +1,6 @@
 package com.segment.analytics.substrata.kotlin
 
-import com.eclipsesource.v8.*
-import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
-import kotlin.Exception
 
 interface Releasable {
     fun release()
@@ -25,122 +22,8 @@ open class JSValue(
     }
 }
 
-fun JSValue.asString() =
-    if (QuickJS.isString(this.ref)) QuickJS.getString(this.ref)
-    else null
-
-
-fun JSValue.asBoolean() =
-    if (QuickJS.isBool(this.ref)) QuickJS.getBool(this.ref)
-    else null
-
-fun JSValue.asInt() =
-    if (QuickJS.isNumber(this.ref)) QuickJS.getInt(this.ref)
-    else null
-
-fun JSValue.asDouble() =
-    if (QuickJS.isNumber(this.ref)) QuickJS.getFloat64(this.ref)
-    else null
-
-fun JSValue.asJSArray(): JSArray? {
-    if (!QuickJS.isArray(this.ref)) return null
-
-    val sizeRef = QuickJS.getProperty(context.ref, this.ref, "length")
-    val size: Int = get(context, sizeRef)
-    val result = MutableList(size) { i ->
-        val valueRef = QuickJS.getProperty(context.ref, this.ref, i)
-        val value = getAny(context, valueRef)
-        value
-    }
-
-    return JSArray(result)
-}
-
-fun JSValue.asJSObject(): JSObject? {
-    if (!QuickJS.isObject(this.ref)) return null
-
-    val names = QuickJS.getOwnPropertyNames(context.ref, ref)
-    val result = mutableMapOf<String, Any?>()
-    for (name in names) {
-        val valueRef = QuickJS.getProperty(context.ref, this.ref, name)
-        val value = getAny(context, valueRef)
-        result[name] = value
-    }
-
-    return JSObject(result)
-}
-
-inline fun <reified T> get(context: JSContext, ref: Long): T {
-    val value = JSValue(ref, context)
-    val result = when(T::class) {
-        String::class -> value.asString()
-        Boolean::class -> value.asBoolean()
-        Int::class -> value.asInt()
-        Double::class -> value.asDouble()
-        else -> null
-    }
-    return result as T
-}
-
-fun getAny(context: JSContext, ref: Long): Any? {
-    val type = QuickJS.getType(ref)
-    val value = JSValue(ref, context)
-    return when (type) {
-        QuickJS.TYPE_STRING -> value.asString()
-        QuickJS.TYPE_BOOLEAN -> value.asBoolean()
-        QuickJS.TYPE_INT -> value.asInt()
-        QuickJS.TYPE_FLOAT64 -> value.asDouble()
-        else -> {}
-    }
-}
-
-fun String.toJSValue(context: JSContext): JSValue {
-    val ref = QuickJS.newString(context.ref, this)
-    return JSValue(ref, context)
-}
-
-fun Boolean.toJSValue(context: JSContext): JSValue {
-    val ref = QuickJS.newBool(context.ref, this)
-    return JSValue(ref, context)
-}
-
-fun Int.toJSValue(context: JSContext): JSValue {
-    val ref = QuickJS.newInt(context.ref, this)
-    return JSValue(ref, context)
-}
-
-fun Double.toJSValue(context: JSContext): JSValue {
-    val ref = QuickJS.newFloat64(context.ref, this)
-    return JSValue(ref, context)
-}
-
-fun JSArray.toJSValue(context: JSContext): JSValue {
-    val ref = QuickJS.newArray(context.ref)
-    for ((index, value) in content.withIndex()) {
-        QuickJS.setProperty(context.ref, ref, index, value.toJSValue(context).ref)
-    }
-    return JSValue(ref, context)
-}
-
-fun JSObject.toJSValue(context: JSContext): JSValue {
-    val ref = QuickJS.newObject(context.ref)
-    for ((key, value) in content) {
-        QuickJS.setProperty(context.ref, ref, key, value.toJSValue(context).ref)
-    }
-    return JSValue(ref, context)
-}
-
-fun Any.toJSValue(context: JSContext): JSValue = when(this) {
-    is String -> this.toJSValue(context)
-    is Boolean -> this.toJSValue(context)
-    is Int -> this.toJSValue(context)
-    is Double -> this.toJSValue(context)
-    is Array<*> -> this.toJSValue(context)
-    else -> throw Exception("/** TODO: */")
-}
-
 class JSArray(
-    val content: MutableList<Any?> = mutableListOf()
+    val content: MutableList<Any> = mutableListOf()
 ) {
 
     fun add(value: Boolean) {
@@ -184,7 +67,7 @@ class JSArray(
 }
 
 class JSObject(
-    val content: MutableMap<String, Any?> = mutableMapOf()
+    val content: MutableMap<String, Any> = mutableMapOf()
 ) {
 
     fun add(key: String, value: Int) {
@@ -219,7 +102,7 @@ class JSObject(
 
     fun getString(key: String) = content[key] as? String
 
-    fun getJsonElement(key: String) = content[key]?.let { JsonElementConverter.read(it) }
+    fun getJsonElement(key: String) = JsonElementConverter.read(content[key])
 
     operator fun get(key: String) = content[key]
 
@@ -235,30 +118,6 @@ class JSFunction(ref: Long, context: JSContext) : JSValue(ref, context) {
     }
 }
 
-
-open class JSResult internal constructor(content: Any?) {
-    private var released = false
-
-    val content: Any
-
-    init {
-        this.content = content ?: V8.getUndefined()
-    }
-
-    fun <T> read(converter: JSConverter<T>) : T {
-        if (released) {
-            throw Exception("JSResult has been released. Make sure you only read the value once.")
-        }
-
-        val result = converter.read(content)
-
-        if (content is Releasable) {
-            content.close()
-        }
-        released = true
-
-        return result
-    }
-}
+object JSNull
 
 open class JSExport

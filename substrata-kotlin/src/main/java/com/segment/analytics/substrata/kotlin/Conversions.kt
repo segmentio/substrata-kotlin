@@ -1,10 +1,83 @@
 package com.segment.analytics.substrata.kotlin
 
-import com.eclipsesource.v8.V8
-import com.eclipsesource.v8.V8Array
-import com.eclipsesource.v8.V8Function
-import com.eclipsesource.v8.V8Object
 import kotlinx.serialization.json.*
+
+internal inline fun <reified T> JSValue.cast() =
+    if (context.isTypeOf<T>(this)) context.unwrap<T>(this)
+    else null
+
+fun JSValue.asString(): String? = cast()
+
+fun JSValue.asBoolean(): Boolean? = cast()
+
+fun JSValue.asInt(): Int?  = cast()
+
+fun JSValue.asDouble(): Double?  = cast()
+
+fun JSValue.asJSArray(): JSArray? =  cast()
+
+fun JSValue.asJSObject(): JSObject? = cast()
+
+inline fun <reified T> get(context: JSContext, ref: Long): T {
+    val value = JSValue(ref, context)
+    val result = when(T::class) {
+        String::class -> value.asString()
+        Boolean::class -> value.asBoolean()
+        Int::class -> value.asInt()
+        Double::class -> value.asDouble()
+        Any::class -> getAny(context, ref)
+        else -> null
+    }
+    return result as T
+}
+
+fun getAny(context: JSContext, ref: Long): Any? {
+    val type = QuickJS.getType(ref)
+    val value = JSValue(ref, context)
+    return when (type) {
+        QuickJS.TYPE_STRING -> value.asString()
+        QuickJS.TYPE_BOOLEAN -> value.asBoolean()
+        QuickJS.TYPE_INT -> value.asInt()
+        QuickJS.TYPE_FLOAT64 -> value.asDouble()
+        else -> null
+    }
+}
+
+fun String.toJSValue(context: JSContext) = context.newJSValue(this)
+
+fun Boolean.toJSValue(context: JSContext) = context.newJSValue(this)
+
+fun Int.toJSValue(context: JSContext) = context.newJSValue(this)
+
+fun Double.toJSValue(context: JSContext) = context.newJSValue(this)
+
+fun JSArray.toJSValue(context: JSContext): JSValue {
+    val array = context.newJSValue(this)
+    for ((index, value) in content.withIndex()) {
+        context.setProperty(array, index, value.toJSValue(context))
+    }
+    return array
+}
+
+fun JSObject.toJSValue(context: JSContext): JSValue {
+    val obj = context.newJSValue(this)
+    for ((key, value) in content) {
+        context.setProperty(obj, key, value.toJSValue(context))
+    }
+    return obj
+}
+
+fun JSNull.toJSValue(context: JSContext): JSValue = context.newJSValue(this)
+
+fun Any.toJSValue(context: JSContext): JSValue = when(this) {
+    is String -> this.toJSValue(context)
+    is Boolean -> this.toJSValue(context)
+    is Int -> this.toJSValue(context)
+    is Double -> this.toJSValue(context)
+    is JSArray -> this.toJSValue(context)
+    is JSObject -> this.toJSValue(context)
+    else -> throw Exception("/** TODO: */")
+}
 
 
 interface JSConverter<T> {
@@ -17,7 +90,7 @@ interface JSConverter<T> {
      *  * string
      *  * v8 value
      */
-    fun read(obj: Any) : T
+    fun read(obj: Any?) : T
 
     /**
      * convert content to a V8 compatible object
@@ -26,20 +99,20 @@ interface JSConverter<T> {
 }
 
 object JsonElementConverter : JSConverter<JsonElement> {
-    override fun read(obj: Any): JsonElement = obj.toJsonElement()
+    override fun read(obj: Any?): JsonElement = obj.toJsonElement()
 
-    override fun write(content: JsonElement, engine: JSEngine): Any = content.toAny(engine.runtime)
+    override fun write(content: JsonElement): Any = content.unwrap()
 
-    private fun JsonElement.toAny(runtime: V8) : Any {
+    private fun JsonElement.unwrap() : Any {
         return when (this) {
-            is JsonPrimitive -> toAny(runtime)
-            is JsonObject -> toAny(runtime)
-            is JsonArray -> toAny(runtime)
-            else -> V8.getUndefined()
+            is JsonPrimitive -> unwrap()
+            is JsonObject -> unwrap()
+            is JsonArray -> unwrap()
+            else -> JSNull
         }
     }
 
-    private fun JsonPrimitive.toAny(runtime: V8) : Any {
+    private fun JsonPrimitive.unwrap() : Any {
         this.booleanOrNull?.let {
             return it
         }
@@ -52,35 +125,12 @@ object JsonElementConverter : JSConverter<JsonElement> {
         this.doubleOrNull?.let {
             return it
         }
-        return V8.getUndefined()
+        return JSNull
     }
 
-    private fun JsonArray.toAny(runtime: V8): Any{
-        val result = V8Array(runtime)
-        try {
-            for (value in this) {
-                result.push(value.toAny(runtime))
-            }
-        } catch (e: IllegalStateException) {
-            result.close()
-            throw e
-        }
+    private fun JsonArray.unwrap() = JSArray(this.toMutableList())
 
-        return result
-    }
-
-    private fun JsonObject.toAny(runtime: V8): Any {
-        val result = V8Object(runtime)
-        try {
-            for ((key, value) in this) {
-                result.add(key, value.toAny(runtime))
-            }
-        } catch (e: IllegalStateException) {
-            result.close()
-            throw e
-        }
-        return result
-    }
+    private fun JsonObject.unwrap() = JSObject(this.toMutableMap())
 
     private fun Any?.toJsonElement(): JsonElement{
         return when (this) {
@@ -89,31 +139,30 @@ object JsonElementConverter : JSConverter<JsonElement> {
             is Int -> JsonPrimitive(this)
             is Double -> JsonPrimitive(this)
             is String -> JsonPrimitive(this)
-            is V8Function -> JsonNull
-            is V8Array -> toJsonArray()
-            is V8Object -> toJsonObject()
+            is JSArray -> toJsonArray()
+            is JSObject -> toJsonObject()
             else -> JsonNull
         }
     }
 
-    private fun V8Array.toJsonArray() = buildJsonArray {
-        val v8Array = this@toJsonArray
+    private fun JSArray.toJsonArray() = buildJsonArray {
+        val jsArray = this@toJsonArray
         val jsonArray = this
 
-        for (i in 0 until length()) {
-            val value = v8Array[i].toJsonElement()
+        for (i in 0 until jsArray.content.size) {
+            val value = jsArray.getJsonElement(i)
             if (value != JsonNull) {
                 jsonArray.add(value)
             }
         }
     }
 
-    private fun V8Object.toJsonObject() = buildJsonObject {
-        val v8Object = this@toJsonObject
+    private fun JSObject.toJsonObject() = buildJsonObject {
+        val jsObject = this@toJsonObject
         val jsonObject = this
 
-        for (key in v8Object.keys) {
-            jsonObject.put(key, v8Object[key].toJsonElement())
+        for (key in jsObject.content.keys) {
+            jsonObject.put(key, jsObject.getJsonElement(key))
         }
     }
 }
