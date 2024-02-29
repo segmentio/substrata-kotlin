@@ -18,31 +18,6 @@ fun JSValue.asJSArray(): JSArray? =  cast()
 
 fun JSValue.asJSObject(): JSObject? = cast()
 
-inline fun <reified T> get(context: JSContext, ref: Long): T {
-    val value = JSValue(ref, context)
-    val result = when(T::class) {
-        String::class -> value.asString()
-        Boolean::class -> value.asBoolean()
-        Int::class -> value.asInt()
-        Double::class -> value.asDouble()
-        Any::class -> getAny(context, ref)
-        else -> null
-    }
-    return result as T
-}
-
-fun getAny(context: JSContext, ref: Long): Any? {
-    val type = QuickJS.getType(ref)
-    val value = JSValue(ref, context)
-    return when (type) {
-        QuickJS.TYPE_STRING -> value.asString()
-        QuickJS.TYPE_BOOLEAN -> value.asBoolean()
-        QuickJS.TYPE_INT -> value.asInt()
-        QuickJS.TYPE_FLOAT64 -> value.asDouble()
-        else -> null
-    }
-}
-
 fun String.toJSValue(context: JSContext) = context.newJSValue(this)
 
 fun Boolean.toJSValue(context: JSContext) = context.newJSValue(this)
@@ -68,6 +43,8 @@ fun JSObject.toJSValue(context: JSContext): JSValue {
 }
 
 fun JSNull.toJSValue(context: JSContext): JSValue = context.newJSValue(this)
+
+fun JSUndefined.toJSValue(context: JSContext): JSValue = context.newJSValue(this)
 
 fun Any.toJSValue(context: JSContext): JSValue = when(this) {
     is String -> this.toJSValue(context)

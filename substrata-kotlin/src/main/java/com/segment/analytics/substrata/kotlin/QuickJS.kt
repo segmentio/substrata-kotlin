@@ -1,7 +1,5 @@
 package com.segment.analytics.substrata.kotlin
 
-import java.lang.IllegalStateException
-
 class QuickJS {
 
     companion object {
@@ -14,6 +12,11 @@ class QuickJS {
         const val TYPE_UNDEFINED = 3
         const val TYPE_EXCEPTION = 6
         const val TYPE_FLOAT64 = 7
+
+        const val EVAL_TYPE_GLOBAL = 0
+        const val EVAL_TYPE_MODULE = 1
+        const val EVAL_FLAG_STRICT = 8
+        const val EVAL_FLAG_STRIP = 16
 
         fun createJSRuntime(): JSRuntime {
             val ref = newRuntime()
@@ -45,10 +48,13 @@ class QuickJS {
         external fun isObject(ref: Long): Boolean
         external fun newObject(context: Long): Long
         external fun getNull(context: Long): Long
+        external fun getUndefined(context: Long): Long
         external fun getType(ref: Long): Int
         external fun getOwnPropertyNames(context: Long, ref: Long): Array<String>
         external fun call(context: Long, function: Long, obj: Long, args: Array<Long>): Long
         external fun newRuntime(): Long
         external fun newContext(runtime: Long): Long
+        external fun getGlobalObject(context: Long): Long
+        external fun evaluate(context: Long, script: String, flags: Int): Long
     }
 }

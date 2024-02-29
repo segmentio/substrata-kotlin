@@ -19,6 +19,21 @@ class JSContext(
         }
     }
 
+    fun executeScript(script: String): Any? {
+        val ret = QuickJS.evaluate(ref, script, QuickJS.EVAL_TYPE_GLOBAL)
+        return getAny(ret)
+    }
+
+//    fun executeFunction(function: String, params: JSArray?): Any {
+//        val ret = QuickJS.call(ref, ref, obj.ref, refs)
+//        return context.getAny(ret)
+//    }
+
+    fun getGlobalObject(): JSObject {
+        val globalContext = QuickJS.getGlobalObject(ref)
+        return get(globalContext)
+    }
+
     fun notifyReferenceReleased(reference: JSValue) {
         for (handler in referenceHandlers) {
             handler.onReleased(reference)
@@ -49,12 +64,38 @@ class JSContext(
 
     inline fun <reified T> getProperty(jsValue: JSValue, name: String): T {
         val propertyRef = QuickJS.getProperty(this.ref, jsValue.ref, name)
-        return get(this, propertyRef)
+        return get(propertyRef)
     }
 
     inline fun <reified T> getProperty(jsValue: JSValue, index: Int): T {
         val propertyRef = QuickJS.getProperty(this.ref, jsValue.ref, index)
-        return get(this, propertyRef)
+        return get(propertyRef)
+    }
+
+    inline fun <reified T> get(ref: Long): T {
+        val value = JSValue(ref, this)
+        val result = when(T::class) {
+            String::class -> value.asString()
+            Boolean::class -> value.asBoolean()
+            Int::class -> value.asInt()
+            Double::class -> value.asDouble()
+            Any::class -> getAny(ref)
+            else -> null
+        }
+        return result as T
+    }
+
+    fun getAny(ref: Long): Any? {
+        val type = QuickJS.getType(ref)
+        val value = JSValue(ref, this)
+        return when (type) {
+            QuickJS.TYPE_STRING -> value.asString()
+            QuickJS.TYPE_BOOLEAN -> value.asBoolean()
+            QuickJS.TYPE_INT -> value.asInt()
+            QuickJS.TYPE_FLOAT64 -> value.asDouble()
+            QuickJS.TYPE_OBJECT -> value.asJSObject()
+            else -> null
+        }
     }
 
     fun getProperties(jsValue: JSValue): MutableMap<String, Any> {
@@ -96,6 +137,7 @@ class JSContext(
             is JSArray -> QuickJS.newArray(ref)
             is JSObject -> QuickJS.newObject(ref)
             is JSNull -> QuickJS.getNull(ref)
+            is JSUndefined -> QuickJS.getUndefined(ref)
             else -> QuickJS.newObject(ref)
         }
         return JSValue(valueRef, this)
