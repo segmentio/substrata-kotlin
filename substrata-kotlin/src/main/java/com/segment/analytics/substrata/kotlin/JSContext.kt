@@ -20,7 +20,7 @@ class JSContext(
     }
 
     fun executeScript(script: String): Any? {
-        val ret = QuickJS.evaluate(ref, script, QuickJS.EVAL_TYPE_GLOBAL)
+        val ret = QuickJS.evaluate(ref, script, QuickJS.EVALUATOR, QuickJS.EVAL_TYPE_GLOBAL)
         return getAny(ret)
     }
 
@@ -41,7 +41,7 @@ class JSContext(
     }
     internal inline fun <reified T> unwrap(jsValue: JSValue) : T {
         val result = when(T::class) {
-            String::class -> QuickJS.getString(jsValue.ref)
+            String::class -> QuickJS.getString(jsValue.context.ref, jsValue.ref)
             Boolean::class -> QuickJS.getBool(jsValue.ref)
             Int::class -> QuickJS.getInt(jsValue.ref)
             Double::class -> QuickJS.getFloat64(jsValue.ref)
@@ -49,6 +49,7 @@ class JSContext(
             JSObject::class -> getValueAsJSObject(jsValue)
             else -> null
         }
+        QuickJS.freeValue(ref, jsValue.ref)
         return result as T
     }
 
@@ -57,7 +58,7 @@ class JSContext(
         Boolean::class -> QuickJS.isBool(jsValue.ref)
         Int::class -> QuickJS.isNumber(jsValue.ref)
         Double::class -> QuickJS.isNumber(jsValue.ref)
-        JSArray::class -> QuickJS.isArray(jsValue.ref)
+        JSArray::class -> QuickJS.isArray(jsValue.context.ref, jsValue.ref)
         JSObject::class -> QuickJS.isObject(jsValue.ref)
         else -> false
     }

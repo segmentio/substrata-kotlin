@@ -18,6 +18,8 @@ class QuickJS {
         const val EVAL_FLAG_STRICT = 8
         const val EVAL_FLAG_STRIP = 16
 
+        const val EVALUATOR = "Substrata.Runtime"
+
         fun createJSRuntime(): JSRuntime {
             val ref = newRuntime()
             if (ref == 0L) {
@@ -26,7 +28,7 @@ class QuickJS {
             return JSRuntime(ref)
         }
 
-        external fun freeValue(ref: Long, ref1: Long)
+        external fun freeValue(context: Long, ref: Long)
         external fun freeRuntime(runtime: Long)
         external fun isBool(ref: Long): Boolean
         external fun getBool(ref: Long): Boolean
@@ -37,24 +39,24 @@ class QuickJS {
         external fun getFloat64(ref: Long): Double
         external fun newFloat64(context: Long, d: Double): Long
         external fun isString(ref: Long): Boolean
-        external fun getString(ref: Long): String
+        external fun getString(context: Long, ref: Long): String
         external fun newString(context: Long, s: String): Long
-        external fun isArray(ref: Long): Boolean
+        external fun isArray(context: Long, ref: Long): Boolean
         external fun newArray(context: Long): Long
         external fun getProperty(context: Long, ref: Long, index: Int): Long
         external fun setProperty(context: Long, ref: Long, index: Int, value: Long)
         external fun setProperty(context: Long, ref: Long, key: String, value: Long)
-        external fun getProperty(context: Long, ref: Long, name: String): Long
+        external fun getProperty(context: Long, ref: Long, key: String): Long
         external fun isObject(ref: Long): Boolean
         external fun newObject(context: Long): Long
         external fun getNull(context: Long): Long
         external fun getUndefined(context: Long): Long
         external fun getType(ref: Long): Int
         external fun getOwnPropertyNames(context: Long, ref: Long): Array<String>
-        external fun call(context: Long, function: Long, obj: Long, args: Array<Long>): Long
+        external fun call(context: Long, function: Long, obj: Long, args: LongArray): Long
         external fun newRuntime(): Long
         external fun newContext(runtime: Long): Long
         external fun getGlobalObject(context: Long): Long
-        external fun evaluate(context: Long, script: String, flags: Int): Long
+        external fun evaluate(context: Long, script: String, file: String, flags: Int): Long
     }
 }

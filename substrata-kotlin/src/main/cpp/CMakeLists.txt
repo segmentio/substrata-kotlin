@@ -15,7 +15,9 @@ project(substrata-quickjs)
 include(../../../../quickjs/CMakeLists.txt)
 
 file(GLOB SUBSTRATA_SOURCES
-        "main.cpp"
+        "java_helper.cpp"
+        "java_helper.h"
+        "quickjs_jni.cpp"
         )
 
 # Creates and names a library, sets it as either STATIC

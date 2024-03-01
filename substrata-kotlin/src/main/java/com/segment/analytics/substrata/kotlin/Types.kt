@@ -73,7 +73,7 @@ class JSObject(
 class JSFunction(ref: Long, context: JSContext) : JSValue(ref, context) {
     operator fun invoke(obj: JSValue, vararg params: JSValue): Any? {
         // TODO: check if the same context
-        val refs = params.map { it.ref }.toTypedArray()
+        val refs = params.map { it.ref }.toLongArray()
         val ret = QuickJS.call(context.ref, ref, obj.ref, refs)
         return context.getAny(ret)
     }
