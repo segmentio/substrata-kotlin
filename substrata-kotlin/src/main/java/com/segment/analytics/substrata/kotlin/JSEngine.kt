@@ -16,18 +16,17 @@ import kotlin.reflect.KClass
  */
 class JSEngine internal constructor(
     private val runtime: JSRuntime,
-    private val context: JSContext = runtime.createJSContext(),
+    internal val context: JSContext = runtime.createJSContext(),
     private val global: JSObject = context.getGlobalObject(),
     private val timeoutInSeconds: Long = 120L
-): KeyValueObject by global {
+): Releasable, KeyValueObject by global {
 
     var bridge: JSDataBridge = JSDataBridge(this)
 
-    constructor(): this(
-        QuickJS.createJSRuntime()
-    )
+    constructor(): this(QuickJS.createJSRuntime())
 
-    fun release() {
+    override fun release() {
+        context.release()
         runtime.release()
     }
 

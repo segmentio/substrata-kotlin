@@ -1,6 +1,6 @@
 package com.segment.analytics.substrata.kotlin
 
-inline fun <T> JSContext.memScope(body: () -> T): T {
+inline fun <T> JSContext.memScope(body: JSContext.() -> T): T {
     val scope = MemoryManager(this)
     try {
         return body()

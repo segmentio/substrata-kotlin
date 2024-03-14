@@ -1,12 +1,16 @@
 package com.segment.analytics.substrata.kotlin
 
+import com.segment.analytics.substrata.kotlin.JsonElementConverter.toJsonElement
+import com.segment.analytics.substrata.kotlin.JsonElementConverter.unwrap
 import kotlinx.serialization.json.JsonElement
 
 interface Releasable {
     fun release()
 }
 
-interface JSConvertible
+interface JSConvertible {
+    val context: JSContext
+}
 
 open class JSValue(
     val ref: Long,
@@ -19,6 +23,7 @@ open class JSValue(
 
     override fun release() {
         context.notifyReferenceReleased(this)
+        context.release(ref)
     }
 }
 
@@ -43,12 +48,12 @@ class JSArray(
     }
 
     fun add(value: JsonElement) {
-        content.add(JsonElementConverter.write(value))
+//        content.add(JsonElementConverter.write(value))
     }
 
     fun <T: JSConvertible> add(value: T, converter: JSConverter<T>) {
-        val converted = converter.write(value)
-        content.add(converted)
+//        val converted = converter.write(value)
+//        content.add(converted)
     }
 
     fun getBoolean(index: Int) = content[index] as? Boolean
@@ -66,9 +71,73 @@ class JSArray(
     fun <T> getJSConvertible(index: Int, converter: JSConverter<T>) : T = converter.read(content[index])
 }
 
-class JSObject(
-    override val content: MutableMap<String, Any> = mutableMapOf()
-): KeyValueObject
+class JSObject private constructor(
+    context: JSContext,
+    ref: Long
+): JSValue(ref, context), KeyValueObject {
+    constructor(jsValue: JSValue) : this(
+        jsValue.context,
+        jsValue.ref)
+
+    constructor(context: JSContext) : this(
+        context.newJSValue<JSObject>(null))
+
+    override fun set(key: String, value: Int) {
+        context.setProperty(this, key, value.toJSValue(context))
+    }
+
+    override fun set(key: String, value: Boolean) {
+        context.setProperty(this, key, value.toJSValue(context))
+    }
+
+    override fun set(key: String, value: Double) {
+        context.setProperty(this, key, value.toJSValue(context))
+    }
+
+    override fun set(key: String, value: String) {
+        context.setProperty(this, key, value.toJSValue(context))
+    }
+
+    override fun set(key: String, value: JSObject) {
+        context.setProperty(this, key, value.toJSValue(context))
+    }
+
+    override fun set(key: String, value: JSArray) {
+        context.setProperty(this, key, value.toJSValue(context))
+    }
+
+    override fun set(key: String, value: JsonElement) {
+        context.setProperty(this, key, value.unwrap(context).toJSValue(context))
+    }
+
+    override fun <T : JSConvertible> set(key: String, value: T, converter: JSConverter<T>) {
+        context.setProperty(this, key, value.toJSValue(context))
+    }
+
+    override fun getBoolean(key: String): Boolean = context.getProperty(this, key)
+
+    override fun getInt(key: String): Int = context.getProperty(this, key)
+
+    override fun getDouble(key: String): Double = context.getProperty(this, key)
+
+    override fun getString(key: String): String = context.getProperty(this, key)
+
+    override fun getJSObject(key: String): JSObject = context.getProperty(this, key)
+
+    override fun getJSArray(key: String): JSArray = context.getProperty(this, key)
+
+    override fun getJsonElement(key: String): JsonElement {
+        val jsObject =  context.getProperty<JSObject>(this, key)
+        return jsObject.toJsonElement()
+    }
+
+    override fun get(key: String): Any? = context.getProperty(this, key)
+
+    override fun <T : JSConvertible> getJSConvertible(key: String, converter: JSConverter<T>): T {
+        val jsObject =  context.getProperty<JSObject>(this, key)
+        return converter.read(jsObject)
+    }
+}
 
 class JSFunction(ref: Long, context: JSContext) : JSValue(ref, context) {
     operator fun invoke(obj: JSValue, vararg params: JSValue): Any? {
@@ -86,55 +155,37 @@ object JSUndefined
 open class JSExport
 
 interface KeyValueObject {
-    val content: MutableMap<String, Any>
+    operator fun set(key: String, value: Int)
 
-    operator fun set(key: String, value: Int) {
-        content[key] = value
-    }
+    operator fun set(key: String, value: Boolean)
 
-    operator fun set(key: String, value: Boolean) {
-        content[key] = value
-    }
+    operator fun set(key: String, value: Double)
 
-    operator fun set(key: String, value: Double) {
-        content[key] = value
-    }
+    operator fun set(key: String, value: String)
 
-    operator fun set(key: String, value: String) {
-        content[key] = value
-    }
+    operator fun set(key: String, value: JSObject)
 
-    operator fun set(key: String, value: JSObject) {
-        content[key] = value
-    }
+    operator fun set(key: String, value: JSArray)
 
-    operator fun set(key: String, value: JSArray) {
-        content[key] = value
-    }
+    operator fun set(key: String, value: JsonElement)
 
-    operator fun set(key: String, value: JsonElement) {
-        content[key] = JsonElementConverter.write(value)
-    }
+    fun <T: JSConvertible> set(key: String, value: T, converter: JSConverter<T>)
 
-    fun <T: JSConvertible> set(key: String, value: T, converter: JSConverter<T>) {
-        content[key] = converter.write(value)
-    }
+    fun getBoolean(key: String): Boolean
 
-    fun getBoolean(key: String, default: Boolean = false) = content[key] as? Boolean ?: default
+    fun getInt(key: String): Int
 
-    fun getInt(key: String, default: Int = 0) = content[key] as? Int ?: default
+    fun getDouble(key: String): Double
 
-    fun getDouble(key: String, default: Double = .0) = content[key] as? Double ?: default
+    fun getString(key: String): String
 
-    fun getString(key: String) = content[key] as? String
+    fun getJSObject(key: String): JSObject
 
-    fun getJSObject(key: String)  = content[key] as? JSObject
+    fun getJSArray(key: String): JSArray
 
-    fun getJSArray(key: String) = content[key] as? JSArray
+    fun getJsonElement(key: String): JsonElement
 
-    fun getJsonElement(key: String) = JsonElementConverter.read(content[key])
+    operator fun get(key: String): Any?
 
-    operator fun get(key: String) = content[key]
-
-    fun <T: JSConvertible> getJSConvertible(key: String, converter: JSConverter<T>) = content[key]?.let { converter.read(it) }
+    fun <T: JSConvertible> getJSConvertible(key: String, converter: JSConverter<T>): T
 }

@@ -35,11 +35,7 @@ fun JSArray.toJSValue(context: JSContext): JSValue {
 }
 
 fun JSObject.toJSValue(context: JSContext): JSValue {
-    val obj = context.newJSValue(this)
-    for ((key, value) in content) {
-        context.setProperty(obj, key, value.toJSValue(context))
-    }
-    return obj
+    return this
 }
 
 fun JSNull.toJSValue(context: JSContext): JSValue = context.newJSValue(this)
@@ -55,6 +51,8 @@ fun Any.toJSValue(context: JSContext): JSValue = when(this) {
     is JSObject -> this.toJSValue(context)
     else -> throw Exception("/** TODO: */")
 }
+
+fun Long.wrapAsJSValue(context: JSContext) = JSValue(this, context)
 
 
 interface JSConverter<T> {
@@ -72,18 +70,18 @@ interface JSConverter<T> {
     /**
      * convert content to a V8 compatible object
      */
-    fun write(content: T) : Any
+    fun write(content: T, context: JSContext) : Any
 }
 
 object JsonElementConverter : JSConverter<JsonElement> {
     override fun read(obj: Any?): JsonElement = obj.toJsonElement()
 
-    override fun write(content: JsonElement): Any = content.unwrap()
+    override fun write(content: JsonElement, context: JSContext): Any = content.unwrap(context)
 
-    private fun JsonElement.unwrap() : Any {
+    internal fun JsonElement.unwrap(context: JSContext) : Any {
         return when (this) {
             is JsonPrimitive -> unwrap()
-            is JsonObject -> unwrap()
+            is JsonObject -> unwrap(context)
             is JsonArray -> unwrap()
             else -> JSNull
         }
@@ -107,9 +105,15 @@ object JsonElementConverter : JSConverter<JsonElement> {
 
     private fun JsonArray.unwrap() = JSArray(this.toMutableList())
 
-    private fun JsonObject.unwrap() = JSObject(this.toMutableMap())
+    private fun JsonObject.unwrap(context: JSContext): JSObject {
+        val jsObject = JSObject(context)
+        for ((key, value) in this) {
+            jsObject[key] = value
+        }
+        return jsObject
+    }
 
-    private fun Any?.toJsonElement(): JsonElement{
+    fun Any?.toJsonElement(): JsonElement{
         return when (this) {
             null -> JsonNull
             is Boolean -> JsonPrimitive(this)
@@ -138,8 +142,8 @@ object JsonElementConverter : JSConverter<JsonElement> {
         val jsObject = this@toJsonObject
         val jsonObject = this
 
-        for (key in jsObject.content.keys) {
-            jsonObject.put(key, jsObject.getJsonElement(key))
+        for ((key, value) in jsObject.context.getProperties(jsObject)) {
+            jsonObject.put(key, value.toJsonElement())
         }
     }
 }

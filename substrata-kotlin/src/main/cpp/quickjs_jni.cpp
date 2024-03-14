@@ -22,6 +22,18 @@
 //      }
 //    }
 
+
+#define COPY_JS_VALUE(JS_CONTEXT, JS_VALUE, RESULT)                                    \
+    do {                                                                               \
+        void *__copy__ = js_malloc_rt(JS_GetRuntime(JS_CONTEXT), sizeof(JSValue));     \
+        if (__copy__ != NULL) {                                                        \
+            memcpy(__copy__, &(JS_VALUE), sizeof(JSValue));                            \
+            (RESULT) = __copy__;                                                       \
+        } else {                                                                       \
+            JS_FreeValue((JS_CONTEXT), (JS_VALUE));                                    \
+        }                                                                              \
+    } while (0)
+
 extern "C"
 JNIEXPORT void JNICALL
 Java_com_segment_analytics_substrata_kotlin_QuickJS_00024Companion_freeValue(JNIEnv *env,
@@ -79,9 +91,10 @@ Java_com_segment_analytics_substrata_kotlin_QuickJS_00024Companion_newBool(JNIEn
     JSContext *ctx = (JSContext *) context;
     CHECK_NULL_RET(env, ctx, MSG_NULL_JS_CONTEXT);
 
-    JSValue *result = NULL;
+    void *result = NULL;
     JSValue val = JS_NewBool(ctx, value);
-    result = &val;
+
+    COPY_JS_VALUE(ctx, val, result);
     CHECK_NULL_RET(env, result, MSG_OOM);
 
     return (jlong) result;
@@ -110,9 +123,9 @@ Java_com_segment_analytics_substrata_kotlin_QuickJS_00024Companion_newInt(JNIEnv
     JSContext *ctx = (JSContext *) context;
     CHECK_NULL_RET(env, ctx, MSG_NULL_JS_CONTEXT);
 
-    JSValue *result = NULL;
+    void *result = NULL;
     JSValue val = JS_NewInt32(ctx, value);
-    result = &val;
+    COPY_JS_VALUE(ctx, val, result);
     CHECK_NULL_RET(env, result, MSG_OOM);
 
     return (jlong) result;
@@ -121,10 +134,15 @@ extern "C"
 JNIEXPORT jdouble JNICALL
 Java_com_segment_analytics_substrata_kotlin_QuickJS_00024Companion_getFloat64(JNIEnv *env,
                                                                               jobject thiz,
+                                                                              jlong context,
                                                                               jlong value) {
+    JSContext *ctx = (JSContext *) context;
+    CHECK_NULL_RET(env, ctx, MSG_NULL_JS_CONTEXT);
     JSValue *val = (JSValue *) value;
     CHECK_NULL_RET(env, val, MSG_NULL_JS_VALUE);
-    return (jdouble) JS_VALUE_GET_FLOAT64(*val);
+    double d;
+    JS_ToFloat64(ctx, &d, *val);
+    return d;
 }
 extern "C"
 JNIEXPORT jlong JNICALL
@@ -135,9 +153,9 @@ Java_com_segment_analytics_substrata_kotlin_QuickJS_00024Companion_newFloat64(JN
     JSContext *ctx = (JSContext *) context;
     CHECK_NULL_RET(env, ctx, MSG_NULL_JS_CONTEXT);
 
-    JSValue *result = NULL;
+    void *result = NULL;
     JSValue val = JS_NewFloat64(ctx, d);
-    result = &val;
+    COPY_JS_VALUE(ctx, val, result);
     CHECK_NULL_RET(env, result, MSG_OOM);
 
     return (jlong) result;
@@ -146,8 +164,10 @@ extern "C"
 JNIEXPORT jboolean JNICALL
 Java_com_segment_analytics_substrata_kotlin_QuickJS_00024Companion_isString(JNIEnv *env,
                                                                             jobject thiz,
-                                                                            jlong ref) {
-    // TODO: implement isString()
+                                                                            jlong value) {
+    JSValue *val = (JSValue *) value;
+    CHECK_NULL_RET(env, val, MSG_NULL_JS_VALUE);
+    return (jboolean) JS_IsString(*val);
 }
 extern "C"
 JNIEXPORT jstring JNICALL
@@ -185,9 +205,9 @@ Java_com_segment_analytics_substrata_kotlin_QuickJS_00024Companion_newString(JNI
     const char *value_utf = env->GetStringUTFChars(value, NULL);
     CHECK_NULL_RET(env, value_utf, MSG_OOM);
 
-    JSValue *result = NULL;
+    void *result = NULL;
     JSValue val = JS_NewString(ctx, value_utf);
-    result = &val;
+    COPY_JS_VALUE(ctx, val, result);
 
     env->ReleaseStringUTFChars(value, value_utf);
 
@@ -217,9 +237,9 @@ Java_com_segment_analytics_substrata_kotlin_QuickJS_00024Companion_newArray(JNIE
     JSContext *ctx = (JSContext *) context;
     CHECK_NULL_RET(env, ctx, MSG_NULL_JS_CONTEXT);
 
-    JSValue *result = NULL;
+    void *result = NULL;
     JSValue val = JS_NewArray(ctx);
-    result = &val;
+    COPY_JS_VALUE(ctx, val, result);
     CHECK_NULL_RET(env, result, MSG_OOM);
 
     return (jlong) result;
@@ -237,12 +257,11 @@ Java_com_segment_analytics_substrata_kotlin_QuickJS_00024Companion_getProperty__
     JSValue *val = (JSValue *) value;
     CHECK_NULL_RET(env, val, MSG_NULL_JS_VALUE);
 
-    JSValue *result = NULL;
+    void *result = NULL;
 
     JSValue prop = JS_GetPropertyUint32(ctx, *val, (uint32_t) index);
 
-    result = &prop;
-
+    COPY_JS_VALUE(ctx, prop, result);
     CHECK_NULL_RET(env, result, MSG_OOM);
 
     return (jlong) result;
@@ -304,12 +323,12 @@ Java_com_segment_analytics_substrata_kotlin_QuickJS_00024Companion_getProperty__
     const char *name_utf = env->GetStringUTFChars(name, NULL);
     CHECK_NULL_RET(env, name_utf, MSG_OOM);
 
-    JSValue *result = NULL;
+    void *result = NULL;
 
     JSValue prop = JS_GetPropertyStr(ctx, *val, name_utf);
 
-    result = &prop;
 
+    COPY_JS_VALUE(ctx, prop, result);
     env->ReleaseStringUTFChars(name, name_utf);
 
     CHECK_NULL_RET(env, result, MSG_OOM);
@@ -334,9 +353,9 @@ Java_com_segment_analytics_substrata_kotlin_QuickJS_00024Companion_newObject(JNI
     JSContext *ctx = (JSContext *) context;
     CHECK_NULL_RET(env, ctx, MSG_NULL_JS_CONTEXT);
 
-    JSValue *result = NULL;
+    void *result = NULL;
     JSValue val = JS_NewObject(ctx);
-    result = &val;
+    COPY_JS_VALUE(ctx, val, result);
     CHECK_NULL_RET(env, result, MSG_OOM);
 
     return (jlong) result;
@@ -350,9 +369,9 @@ Java_com_segment_analytics_substrata_kotlin_QuickJS_00024Companion_getNull(JNIEn
     JSContext *ctx = (JSContext *) context;
     CHECK_NULL_RET(env, ctx, MSG_NULL_JS_CONTEXT);
 
-    JSValue *result = NULL;
+    void *result = NULL;
     JSValue val = JS_NULL;
-    result = &val;
+    COPY_JS_VALUE(ctx, val, result);
     CHECK_NULL_RET(env, result, MSG_OOM);
 
     return (jlong) result;
@@ -366,9 +385,9 @@ Java_com_segment_analytics_substrata_kotlin_QuickJS_00024Companion_getUndefined(
     JSContext *ctx = (JSContext *) context;
     CHECK_NULL_RET(env, ctx, MSG_NULL_JS_CONTEXT);
 
-    JSValue *result = 0;
+    void *result = 0;
     JSValue val = JS_UNDEFINED;
-    result = &val;
+    COPY_JS_VALUE(ctx, val, result);
     CHECK_NULL_RET(env, result, MSG_OOM);
 
     return (jlong) result;
@@ -408,6 +427,7 @@ Java_com_segment_analytics_substrata_kotlin_QuickJS_00024Companion_getOwnPropert
         JS_FreeCString(ctx, str);
         jstring j_str = env->NewStringUTF(str);
         env->SetObjectArrayElement( stringArray, i, j_str );
+        iterator++;
     }
 
     return stringArray;
@@ -434,11 +454,11 @@ Java_com_segment_analytics_substrata_kotlin_QuickJS_00024Companion_call(JNIEnv *
         argv[i] = *((JSValue *) elements[i]);
     }
 
-    JSValue *result = NULL;
+    void *result = NULL;
 
     JSValue ret = JS_Call(ctx, *func_obj, this_obj != NULL ? *this_obj : JS_UNDEFINED, argc, argv);
 
-    result = &ret;
+    COPY_JS_VALUE(ctx, ret, result);
 
     env->ReleaseLongArrayElements(args, elements, JNI_ABORT);
 
@@ -470,13 +490,14 @@ JNIEXPORT jlong JNICALL
 Java_com_segment_analytics_substrata_kotlin_QuickJS_00024Companion_getGlobalObject(JNIEnv *env,
                                                                                    jobject thiz,
                                                                                    jlong context) {
+
     JSContext *ctx = (JSContext *) context;
     CHECK_NULL_RET(env, ctx, MSG_NULL_JS_CONTEXT);
 
-    JSValue *result = NULL;
+    void *result = NULL;
 
     JSValue val = JS_GetGlobalObject(ctx);
-    result = &val;
+    COPY_JS_VALUE(ctx, val, result);
 
     CHECK_NULL_RET(env, result, MSG_OOM);
 
@@ -498,7 +519,7 @@ Java_com_segment_analytics_substrata_kotlin_QuickJS_00024Companion_evaluate(JNIE
     const char *source_code_utf = NULL;
     jsize source_code_length = 0;
     const char *file_name_utf = NULL;
-    JSValue *result = NULL;
+    void *result = NULL;
 
     source_code_utf = env->GetStringUTFChars(source_code, NULL);
     source_code_length = env->GetStringUTFLength(source_code);
@@ -506,7 +527,7 @@ Java_com_segment_analytics_substrata_kotlin_QuickJS_00024Companion_evaluate(JNIE
 
     if (source_code_utf != NULL && file_name_utf != NULL) {
         JSValue val = JS_Eval(ctx, source_code_utf, (size_t) source_code_length, file_name_utf, flags);
-        result = &val;
+        COPY_JS_VALUE(ctx, val, result);
     }
 
     if (source_code_utf != NULL) {
@@ -519,4 +540,13 @@ Java_com_segment_analytics_substrata_kotlin_QuickJS_00024Companion_evaluate(JNIE
     CHECK_NULL_RET(env, result, MSG_OOM);
 
     return (jlong) result;
+}
+extern "C"
+JNIEXPORT void JNICALL
+Java_com_segment_analytics_substrata_kotlin_QuickJS_00024Companion_freeContext(JNIEnv *env,
+                                                                               jobject thiz,
+                                                                               jlong context) {
+    JSContext *ctx = (JSContext *) context;
+    CHECK_NULL(env, ctx, MSG_NULL_JS_CONTEXT);
+    JS_FreeContext(ctx);
 }

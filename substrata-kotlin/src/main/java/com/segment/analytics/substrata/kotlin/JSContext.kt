@@ -2,7 +2,7 @@ package com.segment.analytics.substrata.kotlin
 
 class JSContext(
     val ref: Long
-) {
+): Releasable {
     val referenceHandlers = mutableSetOf<ReferenceHandler>()
 
     fun addReferenceHandler(handler: ReferenceHandler) {
@@ -44,7 +44,7 @@ class JSContext(
             String::class -> QuickJS.getString(jsValue.context.ref, jsValue.ref)
             Boolean::class -> QuickJS.getBool(jsValue.ref)
             Int::class -> QuickJS.getInt(jsValue.ref)
-            Double::class -> QuickJS.getFloat64(jsValue.ref)
+            Double::class -> QuickJS.getFloat64(jsValue.context.ref, jsValue.ref)
             JSArray::class -> getValueAsJSArray(jsValue)
             JSObject::class -> getValueAsJSObject(jsValue)
             else -> null
@@ -80,8 +80,8 @@ class JSContext(
             Boolean::class -> value.asBoolean()
             Int::class -> value.asInt()
             Double::class -> value.asDouble()
-            Any::class -> getAny(ref)
-            else -> null
+            JSValue::class -> value
+            else -> getAny(ref)
         }
         return result as T
     }
@@ -95,7 +95,7 @@ class JSContext(
             QuickJS.TYPE_INT -> value.asInt()
             QuickJS.TYPE_FLOAT64 -> value.asDouble()
             QuickJS.TYPE_OBJECT -> value.asJSObject()
-            else -> null
+            else -> value.asJSObject()
         }
     }
 
@@ -127,9 +127,9 @@ class JSContext(
         return JSArray(result)
     }
 
-    private fun getValueAsJSObject(jsValue: JSValue) = JSObject(getProperties(jsValue))
+    private fun getValueAsJSObject(jsValue: JSValue) = JSObject(jsValue)
 
-    inline fun <reified T> newJSValue(value: T): JSValue {
+    inline fun <reified T> newJSValue(value: T?): JSValue {
         val valueRef = when(value) {
             is String -> QuickJS.newString(ref, value)
             is Boolean -> QuickJS.newBool(ref, value)
@@ -143,4 +143,94 @@ class JSContext(
         }
         return JSValue(valueRef, this)
     }
+
+    override fun release() {
+        QuickJS.freeContext(ref)
+    }
+
+    fun release(valueRef: Long) = QuickJS.freeValue(ref, valueRef)
+
+    fun isBool(valueRef: Long) = QuickJS.isBool(valueRef)
+
+    fun isBool(value: JSValue) = isBool(value.ref)
+
+    fun getBool(valueRef: Long) = QuickJS.getBool(valueRef)
+
+    fun getBool(value: JSValue) = getBool(value.ref)
+
+    fun newBool(value: Boolean): JSValue {
+        val v = QuickJS.newBool(ref, value)
+        return JSValue(v, this)
+    }
+
+    fun isNumber(valueRef: Long) = QuickJS.isNumber(valueRef)
+
+    fun isNumber(value: JSValue) = isNumber(value.ref)
+
+    fun getInt(valueRef: Long) = QuickJS.getInt(valueRef)
+
+    fun getInt(value: JSValue) = getInt(value.ref)
+
+    fun newInt(value: Int): JSValue {
+        val v = QuickJS.newInt(ref, value)
+        return JSValue(v, this)
+    }
+
+    fun getDouble(valueRef: Long) = QuickJS.getFloat64(ref, valueRef)
+
+    fun getDouble(value: JSValue) = getDouble(value.ref)
+
+    fun newDouble(value: Double): JSValue {
+        val v = QuickJS.newFloat64(ref, value)
+        return JSValue(v, this)
+    }
+
+    fun isString(valueRef: Long) = QuickJS.isString(valueRef)
+
+    fun isString(value: JSValue) = isString(value.ref)
+
+    fun getString(valueRef: Long) = QuickJS.getString(ref, valueRef)
+
+    fun getString(value: JSValue) = getString(value.ref)
+
+    fun newString(value: String): JSValue {
+        val v = QuickJS.newString(ref, value)
+        return JSValue(v, this)
+    }
+
+    fun isArray(valueRef: Long) = QuickJS.isArray(ref, valueRef)
+
+    fun isArray(value: JSValue) = isArray(value.ref)
+
+    fun newArray(): JSValue {
+        val v = QuickJS.newArray(ref)
+        return JSValue(v, this)
+    }
+
+    fun isObject(valueRef: Long) = QuickJS.isObject(valueRef)
+
+    fun isObject(value: JSValue) = isObject(value.ref)
+
+    fun newObject(): JSValue {
+        val v = QuickJS.newObject(ref)
+        return JSValue(v, this)
+    }
+
+    fun getNull(): JSValue {
+        val v = QuickJS.getNull(ref)
+        return JSValue(v, this)
+    }
+
+    fun getUndefined(): JSValue {
+        val v = QuickJS.getUndefined(ref)
+        return JSValue(v, this)
+    }
+
+    fun getType(valueRef: Long) = QuickJS.getType(valueRef)
+
+    fun getType(value: JSValue) = getType(value.ref)
+
+    fun getPropertyNames(valueRef: Long): Array<String> = QuickJS.getOwnPropertyNames(ref, valueRef)
+
+    fun getPropertyNames(value: JSValue): Array<String> = getPropertyNames(value.ref)
 }

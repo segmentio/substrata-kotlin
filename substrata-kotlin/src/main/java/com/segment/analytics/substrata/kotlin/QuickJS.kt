@@ -3,6 +3,10 @@ package com.segment.analytics.substrata.kotlin
 class QuickJS {
 
     companion object {
+        init {
+            System.loadLibrary("substrata-quickjs")
+        }
+
         const val TYPE_SYMBOL = -8
         const val TYPE_STRING = -7
         const val TYPE_OBJECT = -1
@@ -36,7 +40,7 @@ class QuickJS {
         external fun isNumber(ref: Long): Boolean
         external fun getInt(ref: Long): Int
         external fun newInt(context: Long, i: Int): Long
-        external fun getFloat64(ref: Long): Double
+        external fun getFloat64(context: Long, ref: Long): Double
         external fun newFloat64(context: Long, d: Double): Long
         external fun isString(ref: Long): Boolean
         external fun getString(context: Long, ref: Long): String
@@ -56,6 +60,7 @@ class QuickJS {
         external fun call(context: Long, function: Long, obj: Long, args: LongArray): Long
         external fun newRuntime(): Long
         external fun newContext(runtime: Long): Long
+        external fun freeContext(context: Long)
         external fun getGlobalObject(context: Long): Long
         external fun evaluate(context: Long, script: String, file: String, flags: Int): Long
     }
