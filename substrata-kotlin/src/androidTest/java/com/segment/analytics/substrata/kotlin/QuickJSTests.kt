@@ -1,8 +1,8 @@
 package com.segment.analytics.substrata.kotlin
 
 import androidx.test.ext.junit.runners.AndroidJUnit4
-import junit.framework.Assert.*
 import org.junit.After
+import org.junit.Assert.*
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -49,7 +49,7 @@ class QuickJSTests {
         val type = context.getType(v)
         assertEquals(QuickJS.TYPE_FLOAT64, type)
         assertTrue(isNumber(v))
-        assertEquals(123.1, getDouble(v))
+        assertEquals(123.1, getDouble(v), 0.01)
     }
 
     @Test
@@ -87,6 +87,12 @@ class QuickJSTests {
         setProperty(obj, "int", newInt(1))
         setProperty(obj, "bool", newBool(true))
         setProperty(obj, "string", newString("test"))
+
+        val nestedObj = newObject()
+        setProperty(nestedObj, "int", newInt(2))
+        setProperty(nestedObj, "bool", newBool(false))
+        setProperty(nestedObj, "string", newString("testtest"))
+        setProperty(obj, "object", nestedObj)
         assertTrue(isObject(obj))
 
         val type = context.getType(obj)
@@ -95,14 +101,25 @@ class QuickJSTests {
         val e1: JSValue = getProperty(obj, "int")
         val e2: JSValue = getProperty(obj, "bool")
         val e3: JSValue = getProperty(obj, "string")
+        val e4: JSValue = getProperty(obj, "object")
+        val e41: JSValue = getProperty(e4, "int")
+        val e42: JSValue = getProperty(e4, "bool")
+        val e43: JSValue = getProperty(e4, "string")
 
         assertTrue(isNumber(e1))
         assertTrue(isBool(e2))
         assertTrue(isString(e3))
+        assertTrue(isObject(e4))
+        assertTrue(isNumber(e41))
+        assertTrue(isBool(e42))
+        assertTrue(isString(e43))
 
         assertEquals(1, getInt(e1))
         assertEquals(true, getBool(e2))
         assertEquals("test", getString(e3))
+        assertEquals(2, getInt(e41))
+        assertEquals(false, getBool(e42))
+        assertEquals("testtest", getString(e43))
     }
 
     @Test

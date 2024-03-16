@@ -1,5 +1,7 @@
 package com.segment.analytics.substrata.kotlin
 
+import java.lang.ref.WeakReference
+
 inline fun <T> JSContext.memScope(body: JSContext.() -> T): T {
     val scope = MemoryManager(this)
     try {
@@ -16,7 +18,11 @@ class MemoryManager(
         context.addReferenceHandler(this)
     }
 
-    private val references = mutableListOf<JSValue>()
+    /*
+    *   we only need to hold the reference to the pointers,
+    *   let GC to collect the instance of JSConvertible
+    * */
+    private val references = mutableSetOf<Long>()
 
     private var releasing = false
 
@@ -28,8 +34,8 @@ class MemoryManager(
         releasing = true
 
         try {
-            for (reference in references) {
-                reference.release()
+            for (ref in references) {
+                context.release(ref)
             }
             context.removeReferenceHandler(this)
             references.clear()
@@ -41,25 +47,16 @@ class MemoryManager(
         released = true
     }
 
-    override fun onCreated(reference: JSValue) {
-        references.add(reference)
+    override fun onCreated(reference: JSConvertible) {
+        references.add(reference.ref)
     }
 
-    override fun onReleased(reference: JSValue) {
-        if (releasing) return
-
-        val iterator: MutableIterator<JSValue> = references.iterator()
-        while (iterator.hasNext()) {
-            if (iterator.next() === reference) {
-                iterator.remove()
-                break
-            }
-        }
+    override fun onReleased(reference: JSConvertible) {
     }
 }
 
 interface ReferenceHandler {
-    fun onCreated(reference: JSValue)
+    fun onCreated(reference: JSConvertible)
 
-    fun onReleased(reference: JSValue)
+    fun onReleased(reference: JSConvertible)
 }

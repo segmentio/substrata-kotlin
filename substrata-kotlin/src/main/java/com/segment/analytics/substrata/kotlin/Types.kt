@@ -9,97 +9,109 @@ interface Releasable {
 }
 
 interface JSConvertible {
+    val ref: Long
     val context: JSContext
 }
 
-open class JSValue(
-    val ref: Long,
-    val context: JSContext
-) : Releasable {
+class JSValue(
+    override val ref: Long,
+    override val context: JSContext) : JSConvertible, Releasable {
 
     init {
         context.notifyReferenceCreated(this)
     }
 
     override fun release() {
-        context.notifyReferenceReleased(this)
         context.release(ref)
+        context.notifyReferenceReleased(this)
     }
 }
 
-class JSArray(
-    val content: MutableList<Any> = mutableListOf()
-) {
+class JSArray(jsValue: JSValue): JSConvertible by jsValue {
 
-    fun add(value: Boolean) {
-        content.add(value)
+    var size: Int = 0
+        private set
+
+    constructor(ref: Long, context: JSContext) : this(JSValue(ref, context))
+
+    fun add(value: Boolean) = with(context) {
+        setProperty(this@JSArray, size++, newBool(value))
     }
 
-    fun add(value: Int) {
-        content.add(value)
+    fun add(value: Int) = with(context) {
+        setProperty(this@JSArray, size++, newInt(value))
     }
 
-    fun add(value: Double) {
-        content.add(value)
+    fun add(value: Double) = with(context) {
+        setProperty(this@JSArray, size++, newDouble(value))
     }
 
-    fun add(value: String) {
-        content.add(value)
+    fun add(value: JSObject) = with(context) {
+        setProperty(this@JSArray, size++, value)
     }
 
-    fun add(value: JsonElement) {
-//        content.add(JsonElementConverter.write(value))
+    fun add(value: JSArray) = with(context) {
+        setProperty(this@JSArray, size++, value)
     }
 
-    fun <T: JSConvertible> add(value: T, converter: JSConverter<T>) {
-//        val converted = converter.write(value)
-//        content.add(converted)
+    fun add(value: String) = with(context) {
+        setProperty(this@JSArray, size++, newString(value))
     }
 
-    fun getBoolean(index: Int) = content[index] as? Boolean
+    fun add(value: JsonElement) = with(context) {
+        setProperty(this@JSArray, size++, value.toJSValue(this))
+    }
 
-    fun getInt(index: Int) = content[index] as? Int
+    fun <T: JSConvertible> add(value: T, converter: JSConverter<T>) = with(context) {
+        setProperty(this@JSArray, size++, value.toJSValue(this))
+    }
 
-    fun getDouble(index: Int) = content[index] as? Double
+    fun getBoolean(index: Int): Boolean = context.getProperty(this, index)
 
-    fun getString(index: Int) = content[index] as? String
+    fun getInt(index: Int): Int = context.getProperty(this, index)
 
-    fun getJsonElement(index: Int) = JsonElementConverter.read(content[index])
+    fun getDouble(index: Int): Double = context.getProperty(this, index)
 
-    operator fun get(index: Int): Any = content[index]
+    fun getString(index: Int): String = context.getProperty(this, index)
 
-    fun <T> getJSConvertible(index: Int, converter: JSConverter<T>) : T = converter.read(content[index])
+    fun getJSObject(index: Int): JSObject = context.getProperty(this, index)
+
+    fun getJSArray(index: Int): JSArray = context.getProperty(this, index)
+
+    fun getJsonElement(index: Int): JsonElement = context.getProperty(this, index)
+
+    operator fun get(index: Int): Any = context.getProperty(this, index)
+
+    fun <T> getJSConvertible(index: Int, converter: JSConverter<T>) : T {
+        val jsArray =  context.getProperty<JSArray>(this, index)
+        return converter.read(jsArray)
+    }
 }
 
-class JSObject private constructor(
-    context: JSContext,
-    ref: Long
-): JSValue(ref, context), KeyValueObject {
-    constructor(jsValue: JSValue) : this(
-        jsValue.context,
-        jsValue.ref)
+class JSObject(
+    jsValue: JSValue
+): JSConvertible by jsValue, KeyValueObject {
 
-    constructor(context: JSContext) : this(
-        context.newJSValue<JSObject>(null))
+    constructor(ref: Long, context: JSContext): this(JSValue(ref, context))
 
-    override fun set(key: String, value: Int) {
-        context.setProperty(this, key, value.toJSValue(context))
+    override fun set(key: String, value: Int) = with(context) {
+        setProperty(this@JSObject, key, newInt(value))
     }
 
-    override fun set(key: String, value: Boolean) {
-        context.setProperty(this, key, value.toJSValue(context))
+    override fun set(key: String, value: Boolean) = with(context) {
+        setProperty(this@JSObject, key, newBool(value))
     }
 
-    override fun set(key: String, value: Double) {
-        context.setProperty(this, key, value.toJSValue(context))
+    override fun set(key: String, value: Double) = with(context) {
+        setProperty(this@JSObject, key, newDouble(value))
     }
 
-    override fun set(key: String, value: String) {
-        context.setProperty(this, key, value.toJSValue(context))
+    override fun set(key: String, value: String) = with(context) {
+        setProperty(this@JSObject, key, newString(value))
     }
 
-    override fun set(key: String, value: JSObject) {
-        context.setProperty(this, key, value.toJSValue(context))
+    override fun set(key: String, value: JSObject) = with(context) {
+        setProperty(this@JSObject, key, value)
     }
 
     override fun set(key: String, value: JSArray) {
@@ -116,13 +128,16 @@ class JSObject private constructor(
 
     override fun getBoolean(key: String): Boolean = context.getProperty(this, key)
 
-    override fun getInt(key: String): Int = context.getProperty(this, key)
+    override fun getInt(key: String): Int {
+        val property = context.getProperty<JSValue>(this, key)
+        return context.getInt(property)
+    }
 
     override fun getDouble(key: String): Double = context.getProperty(this, key)
 
     override fun getString(key: String): String = context.getProperty(this, key)
 
-    override fun getJSObject(key: String): JSObject = context.getProperty(this, key)
+    override fun getJSObject(key: String): JSObject = context.getProperty(this@JSObject, key)
 
     override fun getJSArray(key: String): JSArray = context.getProperty(this, key)
 
@@ -131,7 +146,7 @@ class JSObject private constructor(
         return jsObject.toJsonElement()
     }
 
-    override fun get(key: String): Any? = context.getProperty(this, key)
+    override fun get(key: String): Any = context.getProperty(this, key)
 
     override fun <T : JSConvertible> getJSConvertible(key: String, converter: JSConverter<T>): T {
         val jsObject =  context.getProperty<JSObject>(this, key)
@@ -139,14 +154,14 @@ class JSObject private constructor(
     }
 }
 
-class JSFunction(ref: Long, context: JSContext) : JSValue(ref, context) {
-    operator fun invoke(obj: JSValue, vararg params: JSValue): Any? {
-        // TODO: check if the same context
-        val refs = params.map { it.ref }.toLongArray()
-        val ret = QuickJS.call(context.ref, ref, obj.ref, refs)
-        return context.getAny(ret)
-    }
-}
+//class JSFunction(ref: Long, context: JSContext) : JSValue(ref, context) {
+//    operator fun invoke(obj: JSValue, vararg params: JSValue): Any? {
+//        // TODO: check if the same context
+//        val refs = params.map { it.ref }.toLongArray()
+//        val ret = QuickJS.call(context.ref, ref, obj.ref, refs)
+//        return context.getAny(ret)
+//    }
+//}
 
 object JSNull
 

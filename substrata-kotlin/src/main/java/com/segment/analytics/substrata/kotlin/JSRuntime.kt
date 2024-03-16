@@ -2,9 +2,9 @@ package com.segment.analytics.substrata.kotlin
 
 import java.lang.IllegalStateException
 
-class JSRuntime(val ref: Long): Releasable {
+class JSRuntime(val runtimeRef: Long): Releasable {
     fun createJSContext(): JSContext {
-        val context = QuickJS.newContext(ref)
+        val context = QuickJS.newContext(runtimeRef)
         if (context == 0L) {
             throw IllegalStateException("Failed to create JSContext")
         }
@@ -12,6 +12,6 @@ class JSRuntime(val ref: Long): Releasable {
     }
 
     override fun release() {
-        QuickJS.freeRuntime(ref)
+        QuickJS.freeRuntime(runtimeRef)
     }
 }

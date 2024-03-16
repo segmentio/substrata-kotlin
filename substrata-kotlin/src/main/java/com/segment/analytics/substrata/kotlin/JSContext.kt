@@ -1,7 +1,7 @@
 package com.segment.analytics.substrata.kotlin
 
 class JSContext(
-    val ref: Long
+    val contextRef: Long
 ): Releasable {
     val referenceHandlers = mutableSetOf<ReferenceHandler>()
 
@@ -13,14 +13,14 @@ class JSContext(
         referenceHandlers.remove(handler)
     }
 
-    fun notifyReferenceCreated(reference: JSValue) {
+    fun notifyReferenceCreated(reference: JSConvertible) {
         for (handler in referenceHandlers) {
             handler.onCreated(reference)
         }
     }
 
     fun executeScript(script: String): Any? {
-        val ret = QuickJS.evaluate(ref, script, QuickJS.EVALUATOR, QuickJS.EVAL_TYPE_GLOBAL)
+        val ret = QuickJS.evaluate(contextRef, script, QuickJS.EVALUATOR, QuickJS.EVAL_TYPE_GLOBAL)
         return getAny(ret)
     }
 
@@ -30,46 +30,23 @@ class JSContext(
 //    }
 
     fun getGlobalObject(): JSObject {
-        val globalContext = QuickJS.getGlobalObject(ref)
+        val globalContext = QuickJS.getGlobalObject(contextRef)
         return get(globalContext)
     }
 
-    fun notifyReferenceReleased(reference: JSValue) {
+    fun notifyReferenceReleased(reference: JSConvertible) {
         for (handler in referenceHandlers) {
             handler.onReleased(reference)
         }
     }
-    internal inline fun <reified T> unwrap(jsValue: JSValue) : T {
-        val result = when(T::class) {
-            String::class -> QuickJS.getString(jsValue.context.ref, jsValue.ref)
-            Boolean::class -> QuickJS.getBool(jsValue.ref)
-            Int::class -> QuickJS.getInt(jsValue.ref)
-            Double::class -> QuickJS.getFloat64(jsValue.context.ref, jsValue.ref)
-            JSArray::class -> getValueAsJSArray(jsValue)
-            JSObject::class -> getValueAsJSObject(jsValue)
-            else -> null
-        }
-        QuickJS.freeValue(ref, jsValue.ref)
-        return result as T
-    }
 
-    internal inline fun <reified T> isTypeOf(jsValue: JSValue) = when(T::class) {
-        String::class -> QuickJS.isString(jsValue.ref)
-        Boolean::class -> QuickJS.isBool(jsValue.ref)
-        Int::class -> QuickJS.isNumber(jsValue.ref)
-        Double::class -> QuickJS.isNumber(jsValue.ref)
-        JSArray::class -> QuickJS.isArray(jsValue.context.ref, jsValue.ref)
-        JSObject::class -> QuickJS.isObject(jsValue.ref)
-        else -> false
-    }
-
-    inline fun <reified T> getProperty(jsValue: JSValue, name: String): T {
-        val propertyRef = QuickJS.getProperty(this.ref, jsValue.ref, name)
+    inline fun <reified T> getProperty(jsValue: JSConvertible, name: String): T {
+        val propertyRef = QuickJS.getProperty(this.contextRef, jsValue.ref, name)
         return get(propertyRef)
     }
 
-    inline fun <reified T> getProperty(jsValue: JSValue, index: Int): T {
-        val propertyRef = QuickJS.getProperty(this.ref, jsValue.ref, index)
+    inline fun <reified T> getProperty(jsValue: JSConvertible, index: Int): T {
+        val propertyRef = QuickJS.getProperty(this.contextRef, jsValue.ref, index)
         return get(propertyRef)
     }
 
@@ -80,15 +57,20 @@ class JSContext(
             Boolean::class -> value.asBoolean()
             Int::class -> value.asInt()
             Double::class -> value.asDouble()
+            JSObject::class -> value.asJSObject()
+            JSArray::class -> value.asJSArray()
             JSValue::class -> value
-            else -> getAny(ref)
+            JSConvertible::class ->value
+            Any::class -> getAny(value)
+            else -> throw Exception("Property cannot be casted to the type specified")
         }
         return result as T
     }
 
-    fun getAny(ref: Long): Any? {
-        val type = QuickJS.getType(ref)
-        val value = JSValue(ref, this)
+    fun getAny(ref: Long) = getAny(JSValue(ref, this))
+
+    fun getAny(value: JSValue): Any? {
+        val type = QuickJS.getType(value.ref)
         return when (type) {
             QuickJS.TYPE_STRING -> value.asString()
             QuickJS.TYPE_BOOLEAN -> value.asBoolean()
@@ -99,8 +81,8 @@ class JSContext(
         }
     }
 
-    fun getProperties(jsValue: JSValue): MutableMap<String, Any> {
-        val names = QuickJS.getOwnPropertyNames(this.ref, jsValue.ref)
+    fun getProperties(jsValue: JSConvertible): MutableMap<String, Any> {
+        val names = QuickJS.getOwnPropertyNames(this.contextRef, jsValue.ref)
         val result = mutableMapOf<String, Any>()
         for (name in names) {
             val value: Any = getProperty(jsValue, name)
@@ -109,128 +91,126 @@ class JSContext(
         return result
     }
 
-    fun setProperty(obj: JSValue, index: Int, value: JSValue) {
-        QuickJS.setProperty(ref, obj.ref, index, value.ref)
+    fun setProperty(obj: JSConvertible, index: Int, value: JSConvertible) {
+        QuickJS.setProperty(contextRef, obj.ref, index, value.ref)
     }
 
-    fun setProperty(obj: JSValue, name: String, value: JSValue) {
-        QuickJS.setProperty(ref, obj.ref, name, value.ref)
+    fun setProperty(obj: JSConvertible, name: String, value: JSConvertible) {
+        QuickJS.setProperty(contextRef, obj.ref, name, value.ref)
     }
 
-    private fun getValueAsJSArray(jsValue: JSValue): JSArray {
+    private fun getValueAsJSArray(jsValue: JSConvertible): JSArray {
         val size: Int = getProperty(jsValue, "length")
         val result = MutableList(size) { i ->
             val value: Any = getProperty(jsValue, i)
             value
         }
 
-        return JSArray(result)
+        return JSArray(-1, this)
     }
 
-    private fun getValueAsJSObject(jsValue: JSValue) = JSObject(jsValue)
-
-    inline fun <reified T> newJSValue(value: T?): JSValue {
+    inline fun <reified T> newJSValue(value: T?): JSConvertible {
         val valueRef = when(value) {
-            is String -> QuickJS.newString(ref, value)
-            is Boolean -> QuickJS.newBool(ref, value)
-            is Int -> QuickJS.newInt(ref, value)
-            is Double -> QuickJS.newFloat64(ref,value)
-            is JSArray -> QuickJS.newArray(ref)
-            is JSObject -> QuickJS.newObject(ref)
-            is JSNull -> QuickJS.getNull(ref)
-            is JSUndefined -> QuickJS.getUndefined(ref)
-            else -> QuickJS.newObject(ref)
+            is String -> QuickJS.newString(contextRef, value)
+            is Boolean -> QuickJS.newBool(contextRef, value)
+            is Int -> QuickJS.newInt(contextRef, value)
+            is Double -> QuickJS.newFloat64(contextRef,value)
+            is JSArray -> QuickJS.newArray(contextRef)
+            is JSObject -> QuickJS.newObject(contextRef)
+            is JSNull -> QuickJS.getNull(contextRef)
+            is JSUndefined -> QuickJS.getUndefined(contextRef)
+            else -> QuickJS.newObject(contextRef)
         }
         return JSValue(valueRef, this)
     }
 
     override fun release() {
-        QuickJS.freeContext(ref)
+        QuickJS.freeContext(contextRef)
     }
 
-    fun release(valueRef: Long) = QuickJS.freeValue(ref, valueRef)
+    fun release(valueRef: Long) = QuickJS.freeValue(contextRef, valueRef)
 
     fun isBool(valueRef: Long) = QuickJS.isBool(valueRef)
 
-    fun isBool(value: JSValue) = isBool(value.ref)
+    fun isBool(value: JSConvertible) = isBool(value.ref)
 
     fun getBool(valueRef: Long) = QuickJS.getBool(valueRef)
 
-    fun getBool(value: JSValue) = getBool(value.ref)
+    fun getBool(value: JSConvertible) = getBool(value.ref)
 
-    fun newBool(value: Boolean): JSValue {
-        val v = QuickJS.newBool(ref, value)
+    fun newBool(value: Boolean): JSConvertible {
+        val v = QuickJS.newBool(contextRef, value)
         return JSValue(v, this)
     }
 
     fun isNumber(valueRef: Long) = QuickJS.isNumber(valueRef)
 
-    fun isNumber(value: JSValue) = isNumber(value.ref)
+    fun isNumber(value: JSConvertible) = isNumber(value.ref)
 
     fun getInt(valueRef: Long) = QuickJS.getInt(valueRef)
 
-    fun getInt(value: JSValue) = getInt(value.ref)
+    fun getInt(value: JSConvertible) = getInt(value.ref)
 
-    fun newInt(value: Int): JSValue {
-        val v = QuickJS.newInt(ref, value)
+    fun newInt(value: Int): JSConvertible {
+        val v = QuickJS.newInt(contextRef, value)
         return JSValue(v, this)
     }
 
-    fun getDouble(valueRef: Long) = QuickJS.getFloat64(ref, valueRef)
+    fun getDouble(valueRef: Long) = QuickJS.getFloat64(contextRef, valueRef)
 
-    fun getDouble(value: JSValue) = getDouble(value.ref)
+    fun getDouble(value: JSConvertible) = getDouble(value.ref)
 
-    fun newDouble(value: Double): JSValue {
-        val v = QuickJS.newFloat64(ref, value)
+    fun newDouble(value: Double): JSConvertible {
+        val v = QuickJS.newFloat64(contextRef, value)
         return JSValue(v, this)
     }
 
     fun isString(valueRef: Long) = QuickJS.isString(valueRef)
 
-    fun isString(value: JSValue) = isString(value.ref)
+    fun isString(value: JSConvertible) = isString(value.ref)
 
-    fun getString(valueRef: Long) = QuickJS.getString(ref, valueRef)
+    fun getString(valueRef: Long) = QuickJS.getString(contextRef, valueRef)
 
-    fun getString(value: JSValue) = getString(value.ref)
+    fun getString(value: JSConvertible) = getString(value.ref)
 
-    fun newString(value: String): JSValue {
-        val v = QuickJS.newString(ref, value)
+    fun newString(value: String): JSConvertible {
+        val v = QuickJS.newString(contextRef, value)
         return JSValue(v, this)
     }
 
-    fun isArray(valueRef: Long) = QuickJS.isArray(ref, valueRef)
+    fun isArray(valueRef: Long) = QuickJS.isArray(contextRef, valueRef)
 
-    fun isArray(value: JSValue) = isArray(value.ref)
+    fun isArray(value: JSConvertible) = isArray(value.ref)
 
-    fun newArray(): JSValue {
-        val v = QuickJS.newArray(ref)
-        return JSValue(v, this)
+    fun newArray(): JSArray {
+        val v = QuickJS.newArray(contextRef)
+        return JSArray(v, this)
     }
 
     fun isObject(valueRef: Long) = QuickJS.isObject(valueRef)
 
-    fun isObject(value: JSValue) = isObject(value.ref)
+    fun isObject(value: JSConvertible) = isObject(value.ref)
 
-    fun newObject(): JSValue {
-        val v = QuickJS.newObject(ref)
+    fun newObject(): JSObject {
+        val v = QuickJS.newObject(contextRef)
+        return JSObject(v, this)
+    }
+
+    fun getNull(): JSConvertible {
+        val v = QuickJS.getNull(contextRef)
         return JSValue(v, this)
     }
 
-    fun getNull(): JSValue {
-        val v = QuickJS.getNull(ref)
-        return JSValue(v, this)
-    }
-
-    fun getUndefined(): JSValue {
-        val v = QuickJS.getUndefined(ref)
+    fun getUndefined(): JSConvertible {
+        val v = QuickJS.getUndefined(contextRef)
         return JSValue(v, this)
     }
 
     fun getType(valueRef: Long) = QuickJS.getType(valueRef)
 
-    fun getType(value: JSValue) = getType(value.ref)
+    fun getType(value: JSConvertible) = getType(value.ref)
 
-    fun getPropertyNames(valueRef: Long): Array<String> = QuickJS.getOwnPropertyNames(ref, valueRef)
+    fun getPropertyNames(valueRef: Long): Array<String> = QuickJS.getOwnPropertyNames(contextRef, valueRef)
 
-    fun getPropertyNames(value: JSValue): Array<String> = getPropertyNames(value.ref)
+    fun getPropertyNames(value: JSConvertible): Array<String> = getPropertyNames(value.ref)
 }

@@ -2,21 +2,56 @@ package com.segment.analytics.substrata.kotlin
 
 import kotlinx.serialization.json.*
 
-internal inline fun <reified T> JSValue.cast() =
-    if (context.isTypeOf<T>(this)) context.unwrap<T>(this)
+inline fun <reified T> JSConvertible.unwrap() : T = with(context) {
+    val result = when(T::class) {
+        String::class -> getString(ref)
+        Boolean::class -> getBool(ref)
+        Int::class -> getInt(ref)
+        Double::class -> getDouble(ref)
+        JSArray::class ->
+            if (this@unwrap is JSValue) {
+                JSArray(this@unwrap)
+            }
+            else {
+                JSArray(ref, context)
+            }
+        JSObject::class ->
+            if (this@unwrap is JSValue) {
+                JSObject(this@unwrap)
+            }
+            else {
+                JSObject(ref, context)
+            }
+        else -> JSNull
+    }
+    return result as T
+}
+
+internal inline fun <reified T> JSConvertible.isTypeOf() = when(T::class) {
+    String::class -> context.isString(ref)
+    Boolean::class -> context.isBool(ref)
+    Int::class -> context.isNumber(ref)
+    Double::class -> context.isNumber(ref)
+    JSArray::class -> context.isArray(ref)
+    JSObject::class -> context.isObject(ref)
+    else -> false
+}
+
+internal inline fun <reified T> JSConvertible.cast() =
+    if (isTypeOf<T>()) unwrap<T>()
     else null
 
-fun JSValue.asString(): String? = cast()
+fun JSConvertible.asString(): String? = cast()
 
-fun JSValue.asBoolean(): Boolean? = cast()
+fun JSConvertible.asBoolean(): Boolean? = cast()
 
-fun JSValue.asInt(): Int?  = cast()
+fun JSConvertible.asInt(): Int?  = cast()
 
-fun JSValue.asDouble(): Double?  = cast()
+fun JSConvertible.asDouble(): Double?  = cast()
 
-fun JSValue.asJSArray(): JSArray? =  cast()
+fun JSConvertible.asJSArray(): JSArray? =  cast()
 
-fun JSValue.asJSObject(): JSObject? = cast()
+fun JSConvertible.asJSObject(): JSObject? = cast()
 
 fun String.toJSValue(context: JSContext) = context.newJSValue(this)
 
@@ -26,23 +61,11 @@ fun Int.toJSValue(context: JSContext) = context.newJSValue(this)
 
 fun Double.toJSValue(context: JSContext) = context.newJSValue(this)
 
-fun JSArray.toJSValue(context: JSContext): JSValue {
-    val array = context.newJSValue(this)
-    for ((index, value) in content.withIndex()) {
-        context.setProperty(array, index, value.toJSValue(context))
-    }
-    return array
-}
+fun JSNull.toJSValue(context: JSContext): JSConvertible = context.newJSValue(this)
 
-fun JSObject.toJSValue(context: JSContext): JSValue {
-    return this
-}
+fun JSUndefined.toJSValue(context: JSContext): JSConvertible = context.newJSValue(this)
 
-fun JSNull.toJSValue(context: JSContext): JSValue = context.newJSValue(this)
-
-fun JSUndefined.toJSValue(context: JSContext): JSValue = context.newJSValue(this)
-
-fun Any.toJSValue(context: JSContext): JSValue = when(this) {
+fun Any.toJSValue(context: JSContext): JSConvertible = when(this) {
     is String -> this.toJSValue(context)
     is Boolean -> this.toJSValue(context)
     is Int -> this.toJSValue(context)
@@ -51,8 +74,6 @@ fun Any.toJSValue(context: JSContext): JSValue = when(this) {
     is JSObject -> this.toJSValue(context)
     else -> throw Exception("/** TODO: */")
 }
-
-fun Long.wrapAsJSValue(context: JSContext) = JSValue(this, context)
 
 
 interface JSConverter<T> {
@@ -82,7 +103,7 @@ object JsonElementConverter : JSConverter<JsonElement> {
         return when (this) {
             is JsonPrimitive -> unwrap()
             is JsonObject -> unwrap(context)
-            is JsonArray -> unwrap()
+            is JsonArray -> unwrap(context)
             else -> JSNull
         }
     }
@@ -103,10 +124,16 @@ object JsonElementConverter : JSConverter<JsonElement> {
         return JSNull
     }
 
-    private fun JsonArray.unwrap() = JSArray(this.toMutableList())
+    private fun JsonArray.unwrap(context: JSContext): JSArray {
+        val jsArray = context.newArray()
+        for (index in this.indices) {
+            jsArray.add(this[index])
+        }
+        return jsArray
+    }
 
     private fun JsonObject.unwrap(context: JSContext): JSObject {
-        val jsObject = JSObject(context)
+        val jsObject = context.newObject()
         for ((key, value) in this) {
             jsObject[key] = value
         }
@@ -130,7 +157,7 @@ object JsonElementConverter : JSConverter<JsonElement> {
         val jsArray = this@toJsonArray
         val jsonArray = this
 
-        for (i in 0 until jsArray.content.size) {
+        for (i in 0..jsArray.size) {
             val value = jsArray.getJsonElement(i)
             if (value != JsonNull) {
                 jsonArray.add(value)
