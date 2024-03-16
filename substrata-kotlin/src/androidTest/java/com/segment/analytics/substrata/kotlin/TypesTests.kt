@@ -1,6 +1,14 @@
 package com.segment.analytics.substrata.kotlin
 
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import kotlinx.serialization.json.boolean
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.double
+import kotlinx.serialization.json.int
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.long
+import kotlinx.serialization.json.put
 import org.junit.After
 import org.junit.Assert.*
 import org.junit.Before
@@ -103,5 +111,24 @@ class TypesTests {
         assertEquals(true, jsArr[1])
         assertEquals("testtesttest", jsArr[2])
         assertEquals(3.3, jsArr[3] as Double, 0.01)
+    }
+
+    @Test
+    fun testJsonElement() = context.memScope {
+        val obj = newObject()
+        obj["json"] = buildJsonObject {
+            put("int", 1)
+            put("boolean", true)
+            put("string", "test")
+            put("double", 1.1)
+            put("long", 1710556642L)
+        }
+
+        val json = obj.getJsonElement("json").jsonObject
+        assertEquals(1, json["int"]?.jsonPrimitive?.int)
+        assertEquals(true, json["boolean"]?.jsonPrimitive?.boolean)
+        assertEquals("test", json["string"]?.jsonPrimitive?.content)
+        assertEquals(1.1, json["double"]?.jsonPrimitive?.double)
+        assertEquals(1710556642L, json["long"]?.jsonPrimitive?.long)
     }
 }

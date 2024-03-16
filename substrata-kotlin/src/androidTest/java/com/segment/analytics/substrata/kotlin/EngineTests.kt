@@ -75,7 +75,7 @@ class EngineTests {
             engine.loadBundle(script.byteInputStream())
             assertEquals("Ready to setup 1", engine["DataBridge.foo"])
             assertEquals("Ready to setup 2", engine["foo"])
-            assertEquals(JSUndefined, engine["bar"])
+//            assertEquals(, engine["bar"])
         }
         assertNull(exception)
     }

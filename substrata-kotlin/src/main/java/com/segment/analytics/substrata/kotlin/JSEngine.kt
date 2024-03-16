@@ -36,9 +36,9 @@ class JSEngine internal constructor(
     }
 
     override operator fun get(key: String) = context.memScope {
-        var result: Any? = JSUndefined
+        var result: Any? = context.getUndefined()
         global[key].let { value ->
-            if (value != null && value != JSUndefined) {
+            if (value != null && value != context.getUndefined()) {
                 result = value
             } else try {
                 context.executeScript(key).let { v ->

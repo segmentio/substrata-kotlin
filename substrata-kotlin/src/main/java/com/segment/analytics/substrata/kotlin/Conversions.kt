@@ -2,27 +2,27 @@ package com.segment.analytics.substrata.kotlin
 
 import kotlinx.serialization.json.*
 
-inline fun <reified T> JSConvertible.unwrap() : T = with(context) {
+inline fun <reified T> JSConvertible.wrap() : T = with(context) {
     val result = when(T::class) {
         String::class -> getString(ref)
         Boolean::class -> getBool(ref)
         Int::class -> getInt(ref)
         Double::class -> getDouble(ref)
         JSArray::class ->
-            if (this@unwrap is JSValue) {
-                JSArray(this@unwrap)
+            if (this@wrap is JSValue) {
+                JSArray(this@wrap)
             }
             else {
                 JSArray(ref, context)
             }
         JSObject::class ->
-            if (this@unwrap is JSValue) {
-                JSObject(this@unwrap)
+            if (this@wrap is JSValue) {
+                JSObject(this@wrap)
             }
             else {
                 JSObject(ref, context)
             }
-        else -> JSNull
+        else -> context.getNull()
     }
     return result as T
 }
@@ -38,7 +38,7 @@ internal inline fun <reified T> JSConvertible.isTypeOf() = when(T::class) {
 }
 
 internal inline fun <reified T> JSConvertible.cast() =
-    if (isTypeOf<T>()) unwrap<T>()
+    if (isTypeOf<T>()) wrap<T>()
     else null
 
 fun JSConvertible.asString(): String? = cast()
@@ -60,10 +60,6 @@ fun Boolean.toJSValue(context: JSContext) = context.newJSValue(this)
 fun Int.toJSValue(context: JSContext) = context.newJSValue(this)
 
 fun Double.toJSValue(context: JSContext) = context.newJSValue(this)
-
-fun JSNull.toJSValue(context: JSContext): JSConvertible = context.newJSValue(this)
-
-fun JSUndefined.toJSValue(context: JSContext): JSConvertible = context.newJSValue(this)
 
 fun Any.toJSValue(context: JSContext): JSConvertible = when(this) {
     is String -> this.toJSValue(context)
@@ -97,34 +93,37 @@ interface JSConverter<T> {
 object JsonElementConverter : JSConverter<JsonElement> {
     override fun read(obj: Any?): JsonElement = obj.toJsonElement()
 
-    override fun write(content: JsonElement, context: JSContext): Any = content.unwrap(context)
+    override fun write(content: JsonElement, context: JSContext): Any = content.wrap(context)
 
-    internal fun JsonElement.unwrap(context: JSContext) : Any {
+    internal fun JsonElement.wrap(context: JSContext) : JSConvertible {
         return when (this) {
-            is JsonPrimitive -> unwrap()
-            is JsonObject -> unwrap(context)
-            is JsonArray -> unwrap(context)
-            else -> JSNull
+            is JsonPrimitive -> wrap(context)
+            is JsonObject -> wrap(context)
+            is JsonArray -> wrap(context)
+            else -> context.getNull()
         }
     }
 
-    private fun JsonPrimitive.unwrap() : Any {
+    private fun JsonPrimitive.wrap(context: JSContext) : JSConvertible {
         this.booleanOrNull?.let {
-            return it
+            return context.newBool(it)
         }
         this.intOrNull?.let {
-            return it
+            return context.newInt(it)
         }
         this.longOrNull?.let {
-            return it
+            return context.newDouble(it.toDouble())
         }
         this.doubleOrNull?.let {
-            return it
+            return context.newDouble(it)
         }
-        return JSNull
+        if (this.isString) {
+            return context.newString(content)
+        }
+        return context.getNull()
     }
 
-    private fun JsonArray.unwrap(context: JSContext): JSArray {
+    private fun JsonArray.wrap(context: JSContext): JSArray {
         val jsArray = context.newArray()
         for (index in this.indices) {
             jsArray.add(this[index])
@@ -132,7 +131,7 @@ object JsonElementConverter : JSConverter<JsonElement> {
         return jsArray
     }
 
-    private fun JsonObject.unwrap(context: JSContext): JSObject {
+    private fun JsonObject.wrap(context: JSContext): JSObject {
         val jsObject = context.newObject()
         for ((key, value) in this) {
             jsObject[key] = value
@@ -145,6 +144,7 @@ object JsonElementConverter : JSConverter<JsonElement> {
             null -> JsonNull
             is Boolean -> JsonPrimitive(this)
             is Int -> JsonPrimitive(this)
+            is Long -> JsonPrimitive(this)
             is Double -> JsonPrimitive(this)
             is String -> JsonPrimitive(this)
             is JSArray -> toJsonArray()

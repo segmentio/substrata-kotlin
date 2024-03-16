@@ -1,7 +1,7 @@
 package com.segment.analytics.substrata.kotlin
 
 import com.segment.analytics.substrata.kotlin.JsonElementConverter.toJsonElement
-import com.segment.analytics.substrata.kotlin.JsonElementConverter.unwrap
+import com.segment.analytics.substrata.kotlin.JsonElementConverter.wrap
 import kotlinx.serialization.json.JsonElement
 
 interface Releasable {
@@ -59,7 +59,7 @@ class JSArray(jsValue: JSValue): JSConvertible by jsValue {
     }
 
     fun add(value: JsonElement) = with(context) {
-        setProperty(this@JSArray, size++, value.toJSValue(this))
+        setProperty(this@JSArray, size++, value.wrap(this))
     }
 
     fun <T: JSConvertible> add(value: T, converter: JSConverter<T>) = with(context) {
@@ -78,7 +78,10 @@ class JSArray(jsValue: JSValue): JSConvertible by jsValue {
 
     fun getJSArray(index: Int): JSArray = context.getProperty(this, index)
 
-    fun getJsonElement(index: Int): JsonElement = context.getProperty(this, index)
+    fun getJsonElement(index: Int): JsonElement {
+        val property: Any = context.getProperty(this, index)
+        return property.toJsonElement()
+    }
 
     operator fun get(index: Int): Any = context.getProperty(this, index)
 
@@ -114,12 +117,12 @@ class JSObject(
         setProperty(this@JSObject, key, value)
     }
 
-    override fun set(key: String, value: JSArray) {
-        context.setProperty(this, key, value.toJSValue(context))
+    override fun set(key: String, value: JSArray) = with(context){
+        setProperty(this@JSObject, key, value)
     }
 
-    override fun set(key: String, value: JsonElement) {
-        context.setProperty(this, key, value.unwrap(context).toJSValue(context))
+    override fun set(key: String, value: JsonElement) = with(context) {
+        setProperty(this@JSObject, key, value.wrap(this))
     }
 
     override fun <T : JSConvertible> set(key: String, value: T, converter: JSConverter<T>) {
@@ -142,8 +145,8 @@ class JSObject(
     override fun getJSArray(key: String): JSArray = context.getProperty(this, key)
 
     override fun getJsonElement(key: String): JsonElement {
-        val jsObject =  context.getProperty<JSObject>(this, key)
-        return jsObject.toJsonElement()
+        val property: Any =  context.getProperty(this, key)
+        return property.toJsonElement()
     }
 
     override fun get(key: String): Any = context.getProperty(this, key)
@@ -162,10 +165,6 @@ class JSObject(
 //        return context.getAny(ret)
 //    }
 //}
-
-object JSNull
-
-object JSUndefined
 
 open class JSExport
 

@@ -76,8 +76,18 @@ class JSContext(
             QuickJS.TYPE_BOOLEAN -> value.asBoolean()
             QuickJS.TYPE_INT -> value.asInt()
             QuickJS.TYPE_FLOAT64 -> value.asDouble()
-            QuickJS.TYPE_OBJECT -> value.asJSObject()
-            else -> value.asJSObject()
+            QuickJS.TYPE_OBJECT -> {
+                if (isArray(value)) {
+                    value.asJSArray()
+                }
+                else {
+                    value.asJSObject()
+                }
+            }
+            QuickJS.TYPE_NULL -> getNull()
+            QuickJS.TYPE_UNDEFINED -> getUndefined()
+//            QuickJS.TYPE_EXCEPTION -> getExecption()
+            else -> throw Exception("Property type is undefined")
         }
     }
 
@@ -117,8 +127,6 @@ class JSContext(
             is Double -> QuickJS.newFloat64(contextRef,value)
             is JSArray -> QuickJS.newArray(contextRef)
             is JSObject -> QuickJS.newObject(contextRef)
-            is JSNull -> QuickJS.getNull(contextRef)
-            is JSUndefined -> QuickJS.getUndefined(contextRef)
             else -> QuickJS.newObject(contextRef)
         }
         return JSValue(valueRef, this)
