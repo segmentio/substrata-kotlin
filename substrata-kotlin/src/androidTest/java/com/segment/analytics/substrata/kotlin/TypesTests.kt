@@ -96,6 +96,7 @@ class TypesTests {
         assertEquals("testtest", jsObject.getString("string"))
         assertEquals(2.2, jsObject.getDouble("double"), 0.01)
         val jsArr = arr.getJSArray(5)
+        assertEquals(4, jsArr.size)
         assertEquals(3, jsArr.getInt(0))
         assertEquals(true, jsArr.getBoolean(1))
         assertEquals("testtesttest", jsArr.getString(2))
@@ -153,6 +154,37 @@ class TypesTests {
         assertEquals(2.2, nestedObj["double"]?.jsonPrimitive?.double)
 
         val nestedArr = json["array"]?.jsonArray!!
+        assertEquals(3, nestedArr[0].jsonPrimitive.int)
+        assertEquals(true, nestedArr[1].jsonPrimitive.boolean)
+        assertEquals("testtesttest", nestedArr[2].jsonPrimitive.content)
+        assertEquals(3.3, nestedArr[3].jsonPrimitive.double, 0.01)
+    }
+
+    @Test
+    fun testJsonArray() = context.memScope {
+        val arr = newArray()
+        arr.add(buildJsonObject {
+            put("int", 2)
+            put("boolean", false)
+            put("string", "testtest")
+            put("double", 2.2)
+        })
+        arr.add(
+            buildJsonArray {
+                add(3)
+                add(true)
+                add("testtesttest")
+                add(3.3)
+            }
+        )
+
+        val nestedObj = arr.getJsonElement(0).jsonObject
+        assertEquals(2, nestedObj["int"]?.jsonPrimitive?.int)
+        assertEquals(false, nestedObj["boolean"]?.jsonPrimitive?.boolean)
+        assertEquals("testtest", nestedObj["string"]?.jsonPrimitive?.content)
+        assertEquals(2.2, nestedObj["double"]?.jsonPrimitive?.double)
+
+        val nestedArr = arr.getJsonElement(1).jsonArray
         assertEquals(3, nestedArr[0].jsonPrimitive.int)
         assertEquals(true, nestedArr[1].jsonPrimitive.boolean)
         assertEquals("testtesttest", nestedArr[2].jsonPrimitive.content)
