@@ -1,10 +1,13 @@
 package com.segment.analytics.substrata.kotlin
 
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import kotlinx.serialization.json.add
 import kotlinx.serialization.json.boolean
+import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.double
 import kotlinx.serialization.json.int
+import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.long
@@ -122,6 +125,18 @@ class TypesTests {
             put("string", "test")
             put("double", 1.1)
             put("long", 1710556642L)
+            put("object", buildJsonObject {
+                put("int", 2)
+                put("boolean", false)
+                put("string", "testtest")
+                put("double", 2.2)
+            })
+            put("array", buildJsonArray {
+                add(3)
+                add(true)
+                add("testtesttest")
+                add(3.3)
+            })
         }
 
         val json = obj.getJsonElement("json").jsonObject
@@ -130,5 +145,17 @@ class TypesTests {
         assertEquals("test", json["string"]?.jsonPrimitive?.content)
         assertEquals(1.1, json["double"]?.jsonPrimitive?.double)
         assertEquals(1710556642L, json["long"]?.jsonPrimitive?.long)
+
+        val nestedObj = json["object"]?.jsonObject!!
+        assertEquals(2, nestedObj["int"]?.jsonPrimitive?.int)
+        assertEquals(false, nestedObj["boolean"]?.jsonPrimitive?.boolean)
+        assertEquals("testtest", nestedObj["string"]?.jsonPrimitive?.content)
+        assertEquals(2.2, nestedObj["double"]?.jsonPrimitive?.double)
+
+        val nestedArr = json["array"]?.jsonArray!!
+        assertEquals(3, nestedArr[0].jsonPrimitive.int)
+        assertEquals(true, nestedArr[1].jsonPrimitive.boolean)
+        assertEquals("testtesttest", nestedArr[2].jsonPrimitive.content)
+        assertEquals(3.3, nestedArr[3].jsonPrimitive.double, 0.01)
     }
 }

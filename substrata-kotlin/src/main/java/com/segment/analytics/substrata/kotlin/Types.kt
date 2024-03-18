@@ -30,7 +30,7 @@ class JSValue(
 class JSArray(jsValue: JSValue): JSConvertible by jsValue {
 
     var size: Int = 0
-        private set
+        internal set
 
     constructor(ref: Long, context: JSContext) : this(JSValue(ref, context))
 
@@ -122,7 +122,8 @@ class JSObject(
     }
 
     override fun set(key: String, value: JsonElement) = with(context) {
-        setProperty(this@JSObject, key, value.wrap(this))
+        val v = value.wrap(this)
+        setProperty(this@JSObject, key, v)
     }
 
     override fun <T : JSConvertible> set(key: String, value: T, converter: JSConverter<T>) {

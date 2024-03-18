@@ -132,6 +132,27 @@ class JSContext(
         return JSValue(valueRef, this)
     }
 
+    fun getJSArray(value: JSConvertible): JSArray {
+        val size: Int = getProperty(value, "length")
+        val ret = if (value is JSValue) {
+            JSArray(value)
+        }
+        else {
+            JSArray(value.ref, this)
+        }
+        ret.size = size
+        return ret
+    }
+
+    fun getJSObject(value: JSConvertible): JSObject {
+        return if (value is JSValue) {
+            JSObject(value)
+        }
+        else {
+            JSObject(value.ref, this)
+        }
+    }
+
     override fun release() {
         QuickJS.freeContext(contextRef)
     }

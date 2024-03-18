@@ -8,20 +8,8 @@ inline fun <reified T> JSConvertible.wrap() : T = with(context) {
         Boolean::class -> getBool(ref)
         Int::class -> getInt(ref)
         Double::class -> getDouble(ref)
-        JSArray::class ->
-            if (this@wrap is JSValue) {
-                JSArray(this@wrap)
-            }
-            else {
-                JSArray(ref, context)
-            }
-        JSObject::class ->
-            if (this@wrap is JSValue) {
-                JSObject(this@wrap)
-            }
-            else {
-                JSObject(ref, context)
-            }
+        JSArray::class -> getJSArray(this@wrap)
+        JSObject::class -> getJSObject(this@wrap)
         else -> context.getNull()
     }
     return result as T
