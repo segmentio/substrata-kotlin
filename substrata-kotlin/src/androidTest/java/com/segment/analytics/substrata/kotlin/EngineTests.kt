@@ -94,8 +94,8 @@ class EngineTests {
         scope.sync(exceptionHandler) { engine ->
             engine.loadBundle(script.byteInputStream())
             assertEquals("Ready to setup", engine["DataBridge.foo"])
-//            assertEquals("Ready to setup", engine["foo"])
-//            assertEquals(, engine["bar"])
+            assertEquals("Ready to setup", engine["foo"])
+            assertEquals(engine.JSUndefined, engine["bar"])
         }
         assertNull(exception)
     }

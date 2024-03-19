@@ -21,6 +21,10 @@ class JSEngine internal constructor(
 
     val bridge: JSDataBridge = JSDataBridge(this)
 
+    val JSNull get() = context.JSNull
+
+    val JSUndefined get() = context.JSUndefined
+
     constructor(): this(QuickJS.createJSRuntime())
 
     override fun release() {
