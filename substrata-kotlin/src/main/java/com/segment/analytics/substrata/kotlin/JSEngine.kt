@@ -1,9 +1,7 @@
 package com.segment.analytics.substrata.kotlin
 
-import kotlinx.serialization.json.JsonElement
 import java.io.BufferedReader
 import java.io.InputStream
-import kotlin.reflect.KClass
 
 /**
  * J2V8Engine singleton.  Due to the performance cost of creating runtimes in J2V8,
@@ -26,8 +24,6 @@ class JSEngine internal constructor(
     constructor(): this(QuickJS.createJSRuntime())
 
     override fun release() {
-        bridge.release()
-        global.release()
         context.release()
         runtime.release()
     }

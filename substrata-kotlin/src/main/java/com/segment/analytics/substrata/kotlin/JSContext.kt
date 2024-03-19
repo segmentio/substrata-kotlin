@@ -5,6 +5,8 @@ class JSContext(
 ): Releasable {
     val referenceHandlers = mutableSetOf<ReferenceHandler>()
 
+    private val memoryManager = MemoryManager(this)
+
     val JSNull = getNull()
 
     val JSUndefined = getUndefined()
@@ -158,6 +160,7 @@ class JSContext(
     }
 
     override fun release() {
+        memoryManager.release()
         QuickJS.freeContext(contextRef)
     }
 

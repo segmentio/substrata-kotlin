@@ -20,7 +20,7 @@ class MemoryManager(
     *   we only need to hold the reference to the pointers,
     *   let GC to collect the instance of JSConvertible
     * */
-    private val references = mutableSetOf<Long>()
+    private val references = mutableMapOf<Long, MutableSet<JSConvertible>>()
 
     private var releasing = false
 
@@ -32,8 +32,13 @@ class MemoryManager(
         releasing = true
 
         try {
-            for (ref in references) {
+            for ((ref, list) in references) {
                 context.release(ref)
+                for (v in list) {
+                    if (v is JSValue) {
+                        v.releaseReference()
+                    }
+                }
             }
             context.removeReferenceHandler(this)
             references.clear()
@@ -46,17 +51,24 @@ class MemoryManager(
     }
 
     override fun onCreated(reference: JSConvertible) {
-        references.add(reference.ref)
+        if (!references.containsKey(reference.ref)) {
+            references.put(reference.ref, mutableSetOf())
+        }
+        references[reference.ref]!!.add(reference)
     }
 
     override fun onReleased(reference: JSConvertible) {
         if (releasing) return
 
-        val iterator: MutableIterator<Long> = references.iterator()
+        val iterator: MutableIterator<MutableMap.MutableEntry<Long, MutableSet<JSConvertible>>> = references.iterator()
         while (iterator.hasNext()) {
-            if (iterator.next() == reference.ref) {
-                iterator.remove()
-                return
+            val entry = iterator.next()
+            if (entry.key == reference.ref) {
+                entry.value.remove(reference)
+                if (entry.value.size == 0) {
+                    iterator.remove()
+                }
+                break
             }
         }
     }

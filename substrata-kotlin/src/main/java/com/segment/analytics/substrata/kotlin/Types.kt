@@ -30,7 +30,21 @@ class JSValue(
     }
 
     override fun release() {
+        releasePointer()
+        releaseReference()
+    }
+
+    /**
+     * Release the pointer in QuickJS
+     * */
+    fun releasePointer() {
         context.release(ref)
+    }
+
+    /**
+     * Release the reference hold by its observers
+     * */
+    fun releaseReference() {
         context.notifyReferenceReleased(this)
     }
 }
