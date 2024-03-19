@@ -8,11 +8,19 @@ interface Releasable {
     fun release()
 }
 
-interface JSConvertible {
+/**
+ * Unlike other JSConvertible by default does not register to memory management.
+ * To make it memory manageable see the implementation of JSValue.
+ * */
+interface JSConvertible: Releasable {
     val ref: Long
     val context: JSContext
 }
 
+/**
+ * Unlike other JSConvertible, JSValue auto registers itself to memory management.
+ * It is released once the scope is end
+ * */
 class JSValue(
     override val ref: Long,
     override val context: JSContext) : JSConvertible, Releasable {
@@ -27,6 +35,11 @@ class JSValue(
     }
 }
 
+/**
+ * JSArray uses Delegation pattern instead of inheritance to
+ * avoid registered to memory management multiple times for the
+ * same JSValue.
+ * */
 class JSArray(jsValue: JSValue): JSConvertible by jsValue {
 
     var size: Int = 0
@@ -91,6 +104,11 @@ class JSArray(jsValue: JSValue): JSConvertible by jsValue {
     }
 }
 
+/**
+ * JSObject uses Delegation pattern instead of inheritance to
+ * avoid registered to memory management multiple times for the
+ * same JSValue.
+ * */
 class JSObject(
     jsValue: JSValue
 ): JSConvertible by jsValue, KeyValueObject {

@@ -27,7 +27,7 @@ class JSEngine internal constructor(
 
     override fun release() {
         bridge.release()
-        context.release(global.ref)
+        global.release()
         context.release()
         runtime.release()
     }

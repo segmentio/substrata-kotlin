@@ -14,6 +14,6 @@ class JSDataBridge(
     }
 
     override fun release() {
-        engine.context.release(dictionary.ref)
+        dictionary.release()
     }
 }
