@@ -124,14 +124,14 @@ class QuickJSTests {
 
     @Test
     fun testNull() = context.memScope {
-        val nil = getNull()
+        val nil = JSNull
         val type = context.getType(nil)
         assertEquals(QuickJS.TYPE_NULL, type)
     }
 
     @Test
     fun testUndefined() = context.memScope {
-        val undefined = getUndefined()
+        val undefined = JSUndefined
         val type = context.getType(undefined)
         assertEquals(QuickJS.TYPE_UNDEFINED, type)
     }

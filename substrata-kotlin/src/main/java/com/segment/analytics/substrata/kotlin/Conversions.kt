@@ -10,7 +10,7 @@ inline fun <reified T> JSConvertible.wrap() : T = with(context) {
         Double::class -> getDouble(ref)
         JSArray::class -> getJSArray(this@wrap)
         JSObject::class -> getJSObject(this@wrap)
-        else -> context.getNull()
+        else -> context.JSNull
     }
     return result as T
 }
@@ -88,7 +88,7 @@ object JsonElementConverter : JSConverter<JsonElement> {
             is JsonPrimitive -> wrap(context)
             is JsonObject -> wrap(context)
             is JsonArray -> wrap(context)
-            else -> context.getNull()
+            else -> context.JSNull
         }
     }
 
@@ -108,7 +108,7 @@ object JsonElementConverter : JSConverter<JsonElement> {
         if (this.isString) {
             return context.newString(content)
         }
-        return context.getNull()
+        return context.JSNull
     }
 
     private fun JsonArray.wrap(context: JSContext): JSArray {

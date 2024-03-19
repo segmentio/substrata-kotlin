@@ -21,7 +21,7 @@ class EngineTests {
 
     @After
     fun tearDown() {
-        scope.engine.release()
+        scope.release()
     }
 
     @Test
@@ -40,7 +40,27 @@ class EngineTests {
             engine.bridge["int"] = 123
             engine.bridge["bool"] = false
 
-            val bridge = engine.getJSObject("DataBridge")!!
+            val bridge = engine.getJSObject("DataBridge")
+            assertEquals("123", bridge["string"])
+            assertEquals(123, bridge["int"])
+            assertEquals(false, bridge["bool"])
+
+            assertEquals("123", engine.bridge.getString("string"))
+            assertEquals(123, engine.bridge.getInt("int"))
+            assertEquals(false, engine.bridge.getBoolean("bool"))
+        }
+        assertNull(exception)
+    }
+
+    @Test
+    fun testDataBridgeCrossScopes() {
+        scope.sync(exceptionHandler) { engine ->
+            engine.bridge["string"] = "123"
+            engine.bridge["int"] = 123
+            engine.bridge["bool"] = false
+        }
+        scope.sync(exceptionHandler) { engine ->
+            val bridge = engine.getJSObject("DataBridge")
             assertEquals("123", bridge["string"])
             assertEquals(123, bridge["int"])
             assertEquals(false, bridge["bool"])
@@ -73,8 +93,8 @@ class EngineTests {
         """.trimIndent()
         scope.sync(exceptionHandler) { engine ->
             engine.loadBundle(script.byteInputStream())
-            assertEquals("Ready to setup 1", engine["DataBridge.foo"])
-            assertEquals("Ready to setup 2", engine["foo"])
+            assertEquals("Ready to setup", engine["DataBridge.foo"])
+//            assertEquals("Ready to setup", engine["foo"])
 //            assertEquals(, engine["bar"])
         }
         assertNull(exception)

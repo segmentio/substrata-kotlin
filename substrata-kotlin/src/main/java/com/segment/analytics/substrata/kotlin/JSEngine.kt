@@ -16,16 +16,18 @@ import kotlin.reflect.KClass
  */
 class JSEngine internal constructor(
     private val runtime: JSRuntime,
-    internal val context: JSContext = runtime.createJSContext(),
+    val context: JSContext = runtime.createJSContext(),
     private val global: JSObject = context.getGlobalObject(),
     private val timeoutInSeconds: Long = 120L
 ): Releasable, KeyValueObject by global {
 
-    var bridge: JSDataBridge = JSDataBridge(this)
+    val bridge: JSDataBridge = JSDataBridge(this)
 
     constructor(): this(QuickJS.createJSRuntime())
 
     override fun release() {
+        bridge.release()
+        context.release(global.ref)
         context.release()
         runtime.release()
     }
@@ -35,10 +37,10 @@ class JSEngine internal constructor(
         context.executeScript(script)
     }
 
-    override operator fun get(key: String) = context.memScope {
-        var result: Any? = context.getUndefined()
+    override operator fun get(key: String): Any? {
+        var result: Any? = context.JSUndefined
         global[key].let { value ->
-            if (value != null && value != context.getUndefined()) {
+            if (value != context.JSNull && value != context.JSUndefined) {
                 result = value
             } else try {
                 context.executeScript(key).let { v ->
@@ -46,7 +48,7 @@ class JSEngine internal constructor(
                 }
             } catch (_ : Exception) {}
         }
-        result
+        return result
     }
 
 //

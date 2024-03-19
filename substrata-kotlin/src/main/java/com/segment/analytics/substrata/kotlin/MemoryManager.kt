@@ -1,7 +1,5 @@
 package com.segment.analytics.substrata.kotlin
 
-import java.lang.ref.WeakReference
-
 inline fun <T> JSContext.memScope(body: JSContext.() -> T): T {
     val scope = MemoryManager(this)
     try {
@@ -52,6 +50,15 @@ class MemoryManager(
     }
 
     override fun onReleased(reference: JSConvertible) {
+        if (releasing) return
+
+        val iterator: MutableIterator<Long> = references.iterator()
+        while (iterator.hasNext()) {
+            if (iterator.next() == reference.ref) {
+                iterator.remove()
+                return
+            }
+        }
     }
 }
 

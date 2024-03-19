@@ -5,6 +5,10 @@ class JSContext(
 ): Releasable {
     val referenceHandlers = mutableSetOf<ReferenceHandler>()
 
+    val JSNull = getNull()
+
+    val JSUndefined = getUndefined()
+
     fun addReferenceHandler(handler: ReferenceHandler) {
         referenceHandlers.add(handler)
     }
@@ -84,8 +88,8 @@ class JSContext(
                     value.asJSObject()
                 }
             }
-            QuickJS.TYPE_NULL -> getNull()
-            QuickJS.TYPE_UNDEFINED -> getUndefined()
+            QuickJS.TYPE_NULL -> JSNull
+            QuickJS.TYPE_UNDEFINED -> JSUndefined
 //            QuickJS.TYPE_EXCEPTION -> getExecption()
             else -> throw Exception("Property type is undefined")
         }
@@ -225,12 +229,12 @@ class JSContext(
         return JSObject(v, this)
     }
 
-    fun getNull(): JSConvertible {
+    private fun getNull(): JSConvertible {
         val v = QuickJS.getNull(contextRef)
         return JSValue(v, this)
     }
 
-    fun getUndefined(): JSConvertible {
+    private fun getUndefined(): JSConvertible {
         val v = QuickJS.getUndefined(contextRef)
         return JSValue(v, this)
     }
