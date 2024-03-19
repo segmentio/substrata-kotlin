@@ -10,6 +10,7 @@ inline fun <reified T> JSConvertible.wrap() : T = with(context) {
         Double::class -> getDouble(ref)
         JSArray::class -> getJSArray(this@wrap)
         JSObject::class -> getJSObject(this@wrap)
+        JSFunction::class -> getJSFunction(this@wrap)
         else -> context.JSNull
     }
     return result as T
@@ -22,6 +23,7 @@ internal inline fun <reified T> JSConvertible.isTypeOf() = when(T::class) {
     Double::class -> context.isNumber(ref)
     JSArray::class -> context.isArray(ref)
     JSObject::class -> context.isObject(ref)
+    JSFunction::class -> context.isFunction(ref)
     else -> false
 }
 
@@ -41,6 +43,8 @@ fun JSConvertible.asJSArray(): JSArray? =  cast()
 
 fun JSConvertible.asJSObject(): JSObject? = cast()
 
+fun JSConvertible.asJSFunction(): JSFunction? = cast()
+
 fun String.toJSValue(context: JSContext) = context.newJSValue(this)
 
 fun Boolean.toJSValue(context: JSContext) = context.newJSValue(this)
@@ -50,13 +54,12 @@ fun Int.toJSValue(context: JSContext) = context.newJSValue(this)
 fun Double.toJSValue(context: JSContext) = context.newJSValue(this)
 
 fun Any.toJSValue(context: JSContext): JSConvertible = when(this) {
+    is JSConvertible -> this
     is String -> this.toJSValue(context)
     is Boolean -> this.toJSValue(context)
     is Int -> this.toJSValue(context)
     is Double -> this.toJSValue(context)
-    is JSArray -> this.toJSValue(context)
-    is JSObject -> this.toJSValue(context)
-    else -> throw Exception("/** TODO: */")
+    else -> throw Exception("Type ${this.javaClass.name} cannot be cast to JSValue.")
 }
 
 

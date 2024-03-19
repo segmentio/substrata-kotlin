@@ -63,5 +63,6 @@ class QuickJS {
         external fun freeContext(context: Long)
         external fun getGlobalObject(context: Long): Long
         external fun evaluate(context: Long, script: String, file: String, flags: Int): Long
+        external fun isFunction(contextRef: Long, valueRef: Long): Boolean
     }
 }

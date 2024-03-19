@@ -25,7 +25,7 @@ class JSContext(
         }
     }
 
-    fun executeScript(script: String): Any? {
+    fun evaluate(script: String): Any? {
         val ret = QuickJS.evaluate(contextRef, script, QuickJS.EVALUATOR, QuickJS.EVAL_TYPE_GLOBAL)
         return getAny(ret)
     }
@@ -65,10 +65,11 @@ class JSContext(
             Double::class -> value.asDouble()
             JSObject::class -> value.asJSObject()
             JSArray::class -> value.asJSArray()
+            JSFunction::class -> value.asJSFunction()
             JSValue::class -> value
             JSConvertible::class ->value
             Any::class -> getAny(value)
-            else -> throw Exception("Property cannot be casted to the type specified")
+            else -> throw Exception("Property cannot be casted to the type ${T::class.javaClass.name}")
         }
         return result as T
     }
@@ -83,7 +84,10 @@ class JSContext(
             QuickJS.TYPE_INT -> value.asInt()
             QuickJS.TYPE_FLOAT64 -> value.asDouble()
             QuickJS.TYPE_OBJECT -> {
-                if (isArray(value)) {
+                if (isFunction(value)) {
+                    value.asJSFunction()
+                }
+                else if (isArray(value)) {
                     value.asJSArray()
                 }
                 else {
@@ -156,6 +160,15 @@ class JSContext(
         }
         else {
             JSObject(value.ref, this)
+        }
+    }
+
+    fun getJSFunction(value: JSConvertible): JSFunction {
+        return if (value is JSValue) {
+            JSFunction(value)
+        }
+        else {
+            JSFunction(value.ref, this)
         }
     }
 
@@ -232,6 +245,10 @@ class JSContext(
         return JSObject(v, this)
     }
 
+    fun isFunction(valueRef: Long) = QuickJS.isFunction(contextRef, valueRef)
+
+    fun isFunction(value: JSConvertible) = isFunction(value.ref)
+
     private fun getNull(): JSConvertible {
         val v = QuickJS.getNull(contextRef)
         return JSValue(v, this)
@@ -249,4 +266,11 @@ class JSContext(
     fun getPropertyNames(valueRef: Long): Array<String> = QuickJS.getOwnPropertyNames(contextRef, valueRef)
 
     fun getPropertyNames(value: JSConvertible): Array<String> = getPropertyNames(value.ref)
+
+    fun call(funcRef: Long, objRef: Long, paramsRef: LongArray): Long = QuickJS.call(contextRef, funcRef, objRef, paramsRef)
+
+    fun call(func: JSConvertible, obj: JSConvertible, vararg params: JSConvertible): Long {
+        val refs = params.map { it.ref }.toLongArray()
+        return call(func.ref, obj.ref, refs)
+    }
 }

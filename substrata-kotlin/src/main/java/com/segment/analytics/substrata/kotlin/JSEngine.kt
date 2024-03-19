@@ -34,7 +34,7 @@ class JSEngine internal constructor(
 
     fun loadBundle(bundleStream: InputStream) {
         val script: String = BufferedReader(bundleStream.reader()).readText()
-        context.executeScript(script)
+        context.evaluate(script)
     }
 
     override operator fun get(key: String): Any? {
@@ -43,7 +43,7 @@ class JSEngine internal constructor(
             if (value != context.JSNull && value != context.JSUndefined) {
                 result = value
             } else try {
-                context.executeScript(key).let { v ->
+                context.evaluate(key).let { v ->
                     result = v
                 }
             } catch (_ : Exception) {}
@@ -91,28 +91,25 @@ class JSEngine internal constructor(
 //        }
 //    }
 
-//    fun call(function: String, params: JSArray? = null) = context.executeFunction(function, params)
+    fun call(function: String, vararg params: Any) = call(global, function, *params)
 
-//    fun call(function: JSFunction, params: JSArray? = null): JSResult {
+//    fun call(function: JSFunction, vararg params: Any): Any {
 //        val parameters = params?.content
 //        val rawResult = function.callBack.invoke(null, parameters)
 //        parameters?.close()
 //        return JSResult(rawResult)
 //    }
-//
-//    fun call(
-//        jsObject: JSObject,
-//        function: String,
-//        params: JSArray? = null
-//    ): JSResult {
-//        val parameters = params?.content
-//        val obj = jsObject.content
-//        val rawResult = obj.executeFunction(function, parameters)
-//        parameters?.close()
-//        return JSResult(rawResult)
-//    }
 
-    fun evaluate(script: String) = context.executeScript(script)
+    fun call(
+        jsObject: JSObject,
+        function: String,
+        vararg params: Any
+    ): Any {
+        val func: JSFunction = context.getProperty(jsObject, function)
+        return func(global, *params)
+    }
+
+    fun evaluate(script: String) = context.evaluate(script)
 
 //
 //    /* ===========================================================================

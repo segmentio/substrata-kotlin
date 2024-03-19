@@ -190,14 +190,14 @@ class JSObject(
     }
 }
 
-//class JSFunction(ref: Long, context: JSContext) : JSValue(ref, context) {
-//    operator fun invoke(obj: JSValue, vararg params: JSValue): Any? {
-//        // TODO: check if the same context
-//        val refs = params.map { it.ref }.toLongArray()
-//        val ret = QuickJS.call(context.ref, ref, obj.ref, refs)
-//        return context.getAny(ret)
-//    }
-//}
+class JSFunction(jsValue: JSValue) : JSConvertible by jsValue {
+    constructor(ref: Long, context: JSContext): this(JSValue(ref, context))
+    inline operator fun <reified T> invoke(obj: JSConvertible, vararg params: Any): T {
+        val p = params.map { it.toJSValue(context).ref }.toLongArray()
+        val ret = context.call(this@JSFunction.ref, obj.ref, p)
+        return context.get(ret)
+    }
+}
 
 open class JSExport
 

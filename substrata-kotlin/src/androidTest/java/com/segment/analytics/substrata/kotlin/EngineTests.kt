@@ -146,54 +146,48 @@ class EngineTests {
 //        assertEquals("Something new", data)
 //        assertNull(exception)
 //    }
-//
-//    @Test
-//    fun testCall() {
-//        val script = """
-//            function add(x, y) {
-//                return x+y;
-//            }
-//        """.trimIndent()
-//        var data = "Something"
-//        scope.sync { engine ->
-//            engine.loadBundle(script.byteInputStream())
-//            val retVal = engine.call("add", JSArray.create(engine) {
-//                it.add(10)
-//                it.add(20)
-//            })
-//            assertEquals(30, retVal.content)
+
+    @Test
+    fun testCall() {
+        val script = """
+            function add(x, y) {
+                return x+y;
+            }
+        """.trimIndent()
+        var data = "Something"
+        scope.sync { engine ->
+            engine.loadBundle(script.byteInputStream())
+            val retVal = engine.call("add", 10, 20) as Int
+            assertEquals(30, retVal)
 //            engine.call(JSFunction(engine) { obj, params ->
 //                data = "Modified"
 //                null
 //            })
-//        }
+        }
 //        assertEquals("Modified", data)
 //        assertNull(exception)
-//    }
-//
-//    @Test
-//    fun testCallOnJ2V8Object() {
-//        val script = """
-//            class Calculator {
-//                add(x, y) {
-//                    return x + y
-//                }
-//            }
-//
-//            var calc = new Calculator();
-//        """.trimIndent()
-//        scope.sync { engine ->
-//            engine.loadBundle(script.byteInputStream())
-//            val calc = JSObject(engine, engine.runtime.getObject("calc"))
-//            val retVal = engine.call(calc, "add", JSArray.create(engine) {
-//                it.add(10)
-//                it.add(20)
-//            })
-//            assertEquals(30, retVal)
-//        }
-//        assertNull(exception)
-//    }
-//
+    }
+
+    @Test
+    fun testCallOnJSObject() {
+        val script = """
+            class Calculator {
+                add(x, y) {
+                    return x + y
+                }
+            }
+
+            var calc = new Calculator();
+        """.trimIndent()
+        scope.sync { engine ->
+            engine.loadBundle(script.byteInputStream())
+            val calc = engine.getJSObject("calc")
+            val retVal = engine.call(calc, "add", 10, 20)
+            assertEquals(30, retVal)
+        }
+        assertNull(exception)
+    }
+
 //    @Test
 //    fun testExposeObjectAndClass() {
 //        class Bucket : JSExport() {

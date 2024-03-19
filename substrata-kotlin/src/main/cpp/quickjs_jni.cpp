@@ -550,3 +550,15 @@ Java_com_segment_analytics_substrata_kotlin_QuickJS_00024Companion_freeContext(J
     CHECK_NULL(env, ctx, MSG_NULL_JS_CONTEXT);
     JS_FreeContext(ctx);
 }
+extern "C"
+JNIEXPORT jboolean JNICALL
+Java_com_segment_analytics_substrata_kotlin_QuickJS_00024Companion_isFunction(JNIEnv *env,
+                                                                              jobject thiz,
+                                                                              jlong context,
+                                                                              jlong value) {
+    JSContext *ctx = (JSContext *) context;
+    CHECK_NULL_RET(env, ctx, MSG_NULL_JS_CONTEXT);
+    JSValue *val = (JSValue *) value;
+    CHECK_NULL_RET(env, val, MSG_NULL_JS_VALUE);
+    return (jboolean) JS_IsFunction(ctx, *val);
+}

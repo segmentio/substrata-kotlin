@@ -149,4 +149,27 @@ class QuickJSTests {
         assertEquals("bool", names[1])
         assertEquals("string", names[2])
     }
+
+    @Test
+    fun testCall() = context.memScope {
+
+        val script = """
+            function add(x, y) {
+                return x+y;
+            }
+        """.trimIndent()
+        var data = "Something"
+        evaluate(script)
+        val global = context.getGlobalObject()
+        val func: JSFunction = context.getProperty(global, "add")
+        val retVal: Int = func(global, 10, 20)
+        assertEquals(30, retVal)
+
+//        engine.call(JSFunction(engine) { obj, params ->
+//            data = "Modified"
+//            null
+//        })
+//        assertEquals("Modified", data)
+//        assertNull(exception)
+    }
 }
