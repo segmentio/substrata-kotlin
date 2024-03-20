@@ -93,13 +93,6 @@ class JSEngine internal constructor(
 
     fun call(function: String, vararg params: Any) = call(global, function, *params)
 
-//    fun call(function: JSFunction, vararg params: Any): Any {
-//        val parameters = params?.content
-//        val rawResult = function.callBack.invoke(null, parameters)
-//        parameters?.close()
-//        return JSResult(rawResult)
-//    }
-
     fun call(
         jsObject: JSObject,
         function: String,

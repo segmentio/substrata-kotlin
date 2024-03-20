@@ -159,13 +159,7 @@ class EngineTests {
             engine.loadBundle(script.byteInputStream())
             val retVal = engine.call("add", 10, 20) as Int
             assertEquals(30, retVal)
-//            engine.call(JSFunction(engine) { obj, params ->
-//                data = "Modified"
-//                null
-//            })
         }
-//        assertEquals("Modified", data)
-//        assertNull(exception)
     }
 
     @Test
