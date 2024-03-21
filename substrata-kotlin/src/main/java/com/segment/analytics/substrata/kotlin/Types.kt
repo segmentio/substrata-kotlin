@@ -188,6 +188,8 @@ class JSObject(
         val jsObject =  context.getProperty<JSObject>(this, key)
         return converter.read(jsObject)
     }
+
+    override fun contains(key: String) = context.hasProperty(this, key)
 }
 
 class JSFunction(jsValue: JSValue) : JSConvertible by jsValue {
@@ -237,4 +239,6 @@ interface KeyValueObject {
     operator fun get(key: String): Any?
 
     fun <T: JSConvertible> getJSConvertible(key: String, converter: JSConverter<T>): T
+
+    fun contains(key: String): Boolean
 }

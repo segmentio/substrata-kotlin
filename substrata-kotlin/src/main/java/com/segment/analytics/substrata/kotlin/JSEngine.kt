@@ -61,42 +61,51 @@ class JSEngine internal constructor(
 //    }
 //
 
-    fun export(function: String, body: JSFunctionBody) {
-        if (context.hasProperty(global, function)) return
+    fun export(function: String, body: JSFunctionBody) = extend(global, function, body)
+
+    fun extend(obj: JSObject, function: String, body: JSFunctionBody) {
+        if (obj.contains(function)) return
 
         val functionID = JSShared.nextFunctionId
         JSShared.functions[functionID] = body
-        context.newFunction(global, function, functionID)
+        context.newFunction(obj, function, functionID)
     }
-//
-//    fun extend(objectName: String, functionName: String, function: JSFunction) {
-//        /*
-//          If already exists
-//          -> if an object, extend it
-//          -> else, reportError
-//          else create it
-//         */
-//        val v8Obj: V8Object = runtime.get(objectName).let { value ->
-//            when (value) {
-//                null, V8.getUndefined() -> {
-//                    V8Object(runtime)
-//                }
-//                is V8Object -> {
-//                    value
-//                }
-//                else ->
-//                    throw Exception(
-//                        "attempting to add fn to a non-object value. $functionName cannot be added to $objectName"
-//                    )
-//            }
-//        }
-//        v8Obj.let {
-//            it.registerJavaMethod(function.callBack, functionName)
-//            runtime.add(objectName, it)
-//        }
-//    }
+
+    fun extend(objectName: String, functionName: String, body: JSFunctionBody) {
+        /*
+          If already exists
+          -> if an object, extend it
+          -> else, reportError
+          else create it
+         */
+        val jsObj: JSObject = get(objectName).let { value ->
+            when (value) {
+                JSNull, JSUndefined -> {
+                    val newObj = context.newObject()
+                    global[objectName] = newObj
+                    newObj
+                }
+                is JSObject -> {
+                    value
+                }
+                else ->
+                    throw Exception(
+                        "attempting to add fn to a non-object value. $functionName cannot be added to $objectName"
+                    )
+            }
+        }
+        extend(jsObj, functionName, body)
+    }
 
     fun call(function: String, vararg params: Any) = call(global, function, *params)
+
+    fun call(objectName: String, function: String, vararg params: Any): Any {
+        val jsObj = get(objectName)
+        if (jsObj is JSObject) {
+            return call(jsObj, function, *params)
+        }
+        else throw Exception("$objectName does not exist")
+    }
 
     fun call(
         jsObject: JSObject,

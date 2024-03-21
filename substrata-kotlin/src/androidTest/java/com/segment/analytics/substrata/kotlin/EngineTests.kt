@@ -182,6 +182,25 @@ class EngineTests {
         assertNull(exception)
     }
 
+    @Test
+    fun testCallOnObjectName() {
+        val script = """
+            class Calculator {
+                add(x, y) {
+                    return x + y
+                }
+            }
+
+            var calc = new Calculator();
+        """.trimIndent()
+        scope.sync(exceptionHandler) { engine ->
+            engine.loadBundle(script.byteInputStream())
+            val retVal = engine.call("calc", "add", 10, 20)
+            assertEquals(30, retVal)
+        }
+        assertNull(exception)
+    }
+
 //    @Test
 //    fun testExposeObjectAndClass() {
 //        class Bucket : JSExport() {
@@ -220,8 +239,40 @@ class EngineTests {
                 return@export (x + y)
             }
 
-            val ret = engine.call("add", 10, 20) as Int
+            var ret = engine.call("add", 10, 20) as Int
             assertEquals(30, ret)
+
+            ret = engine.evaluate("""
+                var result = add(10, 20)
+                result
+            """.trimIndent()) as Int
+            assertEquals(30, ret)
+        }
+        assertNull(exception)
+    }
+
+    @Test
+    fun testExtendMethod() {
+        scope.sync(exceptionHandler) { engine ->
+            // extend non-exist variable
+            engine.extend("calculator", "add") { params ->
+                val x = params[0] as Int
+                val y = params[1] as Int
+                return@extend (x + y)
+            }
+
+            var ret = engine.call("calculator", "add", 10, 20) as Int
+            assertEquals(30, ret)
+
+            // now calculator exists. extend when variable exists
+            engine.extend("calculator", "minus") { params ->
+                val x = params[0] as Int
+                val y = params[1] as Int
+                return@extend (x - y)
+            }
+
+            ret = engine.call("calculator", "minus", 20, 10) as Int
+            assertEquals(10, ret)
         }
         assertNull(exception)
     }
