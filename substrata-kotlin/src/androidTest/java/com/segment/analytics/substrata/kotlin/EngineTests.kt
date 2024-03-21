@@ -106,7 +106,7 @@ class EngineTests {
             var foo = "Ready to setup";
             DataBridge["foo"] = foo;
         """.trimIndent()
-        scope.sync {
+        scope.sync(exceptionHandler) {
             it.loadBundle(script.byteInputStream())
             it["foo"] = "Modified"
             assertEquals("Ready to setup", it["DataBridge.foo"])
@@ -154,12 +154,12 @@ class EngineTests {
                 return x+y;
             }
         """.trimIndent()
-        var data = "Something"
-        scope.sync { engine ->
+        scope.sync(exceptionHandler) { engine ->
             engine.loadBundle(script.byteInputStream())
             val retVal = engine.call("add", 10, 20) as Int
             assertEquals(30, retVal)
         }
+        assertNull(exception)
     }
 
     @Test
@@ -173,7 +173,7 @@ class EngineTests {
 
             var calc = new Calculator();
         """.trimIndent()
-        scope.sync { engine ->
+        scope.sync(exceptionHandler) { engine ->
             engine.loadBundle(script.byteInputStream())
             val calc = engine.getJSObject("calc")
             val retVal = engine.call(calc, "add", 10, 20)
@@ -210,20 +210,20 @@ class EngineTests {
 //        }
 //        assertNull(exception)
 //    }
-//
-//    @Test
-//    fun testExposeMethod() {
-//        scope.sync { engine ->
-//            engine.export("add", JSFunction(engine) { obj, params ->
-//                params?.getInt(0)?.plus(params.getInt(1))
-//            })
-//
-//            val ret = engine.call("add", JSArray.create(engine) {
-//                it.add(10)
-//                it.add(20)
-//            })
-//            assertEquals(30, ret)
-//        }
-//    }
+
+    @Test
+    fun testExportMethod() {
+        scope.sync(exceptionHandler) { engine ->
+            engine.export("add") { params ->
+                val x = params[0] as Int
+                val y = params[1] as Int
+                return@export (x + y)
+            }
+
+            val ret = engine.call("add", 10, 20) as Int
+            assertEquals(30, ret)
+        }
+        assertNull(exception)
+    }
 
 }

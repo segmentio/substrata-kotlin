@@ -199,6 +199,8 @@ class JSFunction(jsValue: JSValue) : JSConvertible by jsValue {
     }
 }
 
+typealias JSFunctionBody = (List<Any?>) -> Any?
+
 open class JSExport
 
 interface KeyValueObject {

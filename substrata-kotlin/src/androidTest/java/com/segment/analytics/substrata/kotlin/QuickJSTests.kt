@@ -172,4 +172,13 @@ class QuickJSTests {
 //        assertEquals("Modified", data)
 //        assertNull(exception)
     }
+
+    @Test
+    fun testProperty() = context.memScope {
+        val global = getGlobalObject()
+        assertFalse(hasProperty(global, "test"))
+        setProperty(global, "test", "123".toJSValue(this))
+        assertTrue(hasProperty(global, "test"))
+        assertEquals("123", getProperty(global, "test"))
+    }
 }

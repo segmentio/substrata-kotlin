@@ -51,6 +51,7 @@ class QuickJS {
         external fun setProperty(context: Long, ref: Long, index: Int, value: Long)
         external fun setProperty(context: Long, ref: Long, key: String, value: Long)
         external fun getProperty(context: Long, ref: Long, key: String): Long
+        external fun hasProperty(context: Long, ref: Long, key: String): Boolean
         external fun isObject(ref: Long): Boolean
         external fun newObject(context: Long): Long
         external fun getNull(context: Long): Long
@@ -64,5 +65,6 @@ class QuickJS {
         external fun getGlobalObject(context: Long): Long
         external fun evaluate(context: Long, script: String, file: String, flags: Int): Long
         external fun isFunction(contextRef: Long, valueRef: Long): Boolean
+        external fun newFunction(context: JSContext, contextRef: Long, valueRef: Long, functionName: String, functionId: Int): Long
     }
 }

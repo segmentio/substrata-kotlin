@@ -3,6 +3,7 @@
 #include <string.h>
 #include <malloc.h>
 #include "java_helper.h"
+#include "java_callback.h"
 
 // Write C++ code here.
 //
@@ -483,6 +484,8 @@ Java_com_segment_analytics_substrata_kotlin_QuickJS_00024Companion_newContext(JN
     JSContext *ctx = JS_NewContext(rt);
     CHECK_NULL_RET(env, ctx, MSG_OOM);
 
+    if (java_callback_init(ctx)) THROW_ILLEGAL_STATE_EXCEPTION_RET(env, MSG_OOM);
+
     return (jlong) ctx;
 }
 extern "C"
@@ -561,4 +564,104 @@ Java_com_segment_analytics_substrata_kotlin_QuickJS_00024Companion_isFunction(JN
     JSValue *val = (JSValue *) value;
     CHECK_NULL_RET(env, val, MSG_NULL_JS_VALUE);
     return (jboolean) JS_IsFunction(ctx, *val);
+}
+extern "C"
+JNIEXPORT jboolean JNICALL
+Java_com_segment_analytics_substrata_kotlin_QuickJS_00024Companion_hasProperty(JNIEnv *env,
+                                                                               jobject thiz,
+                                                                               jlong context,
+                                                                               jlong value,
+                                                                               jstring name) {
+    JSContext *ctx = (JSContext *) context;
+    CHECK_NULL_RET(env, ctx, MSG_NULL_JS_CONTEXT);
+    JSValue *val = (JSValue *) value;
+    CHECK_NULL_RET(env, val, MSG_NULL_JS_VALUE);
+
+    const char *name_utf = env->GetStringUTFChars(name, NULL);
+    CHECK_NULL_RET(env, name_utf, MSG_OOM);
+    JSAtom atom = JS_NewAtom(ctx, name_utf);
+    int result = 0;
+    if (atom != JS_ATOM_NULL) {
+        result = JS_HasProperty(ctx, *val, atom);
+        JS_FreeAtom(ctx, atom);
+        return result;
+    }
+    env->ReleaseStringUTFChars(name, name_utf);
+    return (jboolean)result;
+}
+
+static jlong JS_ToPointer(JNIEnv* env, JSContext *ctx, JSValue val) {
+    void *result = NULL;
+
+    COPY_JS_VALUE(ctx, val, result);
+    CHECK_NULL_RET(env, result, MSG_OOM);
+    return (jlong)result;
+}
+
+static JSValue invoke(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv, int magic, JSValue *func_data) {
+    JavaCallbackData *data = (JavaCallbackData*)JS_GetOpaque(*func_data, java_callback_class_id);
+
+    JNIEnv *env;
+    data->vm->AttachCurrentThread(&env, NULL);
+
+    jclass clazz = env->FindClass( "com/segment/analytics/substrata/kotlin/JSShared" );
+    jmethodID  method = env->GetStaticMethodID(clazz, "jsCallback",
+                                               "(Lcom/segment/analytics/substrata/kotlin/JSContext;I[J)J");
+
+    jlongArray params = nullptr;
+    if (argc > 0) {;
+        params = env->NewLongArray(argc);
+        jlong paramsC[argc];
+        for (int i = 0; i < argc; i++) {
+            paramsC[i] = JS_ToPointer(env, ctx, argv[i]);
+        }
+        env->SetLongArrayRegion(params, 0, argc, paramsC);
+    }
+
+    jlong ret = env->CallStaticLongMethod(clazz, method, data->js_context, (jint)magic, params);
+    JSValue *retVal = (JSValue *) ret;
+
+    env->DeleteLocalRef(params);
+
+    return *retVal;
+
+}
+extern "C"
+JNIEXPORT jlong JNICALL
+Java_com_segment_analytics_substrata_kotlin_QuickJS_00024Companion_newFunction(JNIEnv *env,
+                                                                               jobject thiz,
+                                                                               jobject js_context,
+                                                                               jlong context,
+                                                                               jlong value,
+                                                                               jstring name,
+                                                                               jint id) {
+    JSContext *ctx = (JSContext *) context;
+    CHECK_NULL_RET(env, ctx, MSG_NULL_JS_CONTEXT);
+    JSValue *val = (JSValue *) value;
+    CHECK_NULL_RET(env, val, MSG_NULL_JS_VALUE);
+
+    // create JavaCallbackData that carries JSContext instance for later use in callback
+    JSRuntime *rt = JS_GetRuntime(ctx);
+    JavaCallbackData *data = NULL;
+    data = (JavaCallbackData*) js_malloc_rt(rt, sizeof(JavaCallbackData));
+    JSValue callback = JS_NewObjectClass(ctx, java_callback_class_id);
+    env->GetJavaVM(&data->vm);
+    data->js_context =  env->NewGlobalRef(js_context);
+    JS_SetOpaque(callback, data);
+
+    const char *name_utf = env->GetStringUTFChars(name, NULL);
+    JSValue newFunction = JS_NewCFunctionData(ctx, invoke, 1, id, 2, &callback);
+
+    // JS_SetPropertyStr requires a reference count of the property JSValue
+    // Meanwhile, it calls JS_FreeValue on the property JSValue if it fails
+    JS_DupValue(ctx, newFunction);
+    JS_SetPropertyStr(ctx, *val, name_utf, newFunction);
+
+    env->ReleaseStringUTFChars(name, name_utf);
+    JS_FreeValue(ctx, callback);
+
+    void *result = NULL;
+    COPY_JS_VALUE(ctx, newFunction, result);
+    CHECK_NULL_RET(env, result, MSG_OOM);
+    return (jlong) result;
 }

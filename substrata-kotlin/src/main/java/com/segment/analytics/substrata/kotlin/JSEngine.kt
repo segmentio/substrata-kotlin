@@ -60,9 +60,14 @@ class JSEngine internal constructor(
 //        V8JavaAdapter.injectClass(className, clazz.java, runtime)
 //    }
 //
-//    fun export(functionName: String, function: JSFunction) {
-//        runtime.registerJavaMethod(function.callBack, functionName)
-//    }
+
+    fun export(function: String, body: JSFunctionBody) {
+        if (context.hasProperty(global, function)) return
+
+        val functionID = JSShared.nextFunctionId
+        JSShared.functions[functionID] = body
+        context.newFunction(global, function, functionID)
+    }
 //
 //    fun extend(objectName: String, functionName: String, function: JSFunction) {
 //        /*

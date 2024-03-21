@@ -119,6 +119,8 @@ class JSContext(
         QuickJS.setProperty(contextRef, obj.ref, name, value.ref)
     }
 
+    fun hasProperty(obj: JSConvertible, name: String) = QuickJS.hasProperty(contextRef, obj.ref, name)
+
     private fun getValueAsJSArray(jsValue: JSConvertible): JSArray {
         val size: Int = getProperty(jsValue, "length")
         val result = MutableList(size) { i ->
@@ -129,7 +131,7 @@ class JSContext(
         return JSArray(-1, this)
     }
 
-    inline fun <reified T> newJSValue(value: T?): JSConvertible {
+    fun newJSValue(value: Any?): JSConvertible {
         val valueRef = when(value) {
             is String -> QuickJS.newString(contextRef, value)
             is Boolean -> QuickJS.newBool(contextRef, value)
@@ -177,7 +179,14 @@ class JSContext(
         QuickJS.freeContext(contextRef)
     }
 
-    fun release(valueRef: Long) = QuickJS.freeValue(contextRef, valueRef)
+    fun release(valueRef: Long) {
+        try {
+            QuickJS.freeValue(contextRef, valueRef)
+        }
+        catch (_: Exception) {
+
+        }
+    }
 
     fun isBool(valueRef: Long) = QuickJS.isBool(valueRef)
 
@@ -273,4 +282,11 @@ class JSContext(
         val refs = params.map { it.ref }.toLongArray()
         return call(func.ref, obj.ref, refs)
     }
+
+    fun newFunction(valueRef: Long, functionName: String, functionId: Int): JSFunction {
+        val ret = QuickJS.newFunction(this, contextRef, valueRef, functionName, functionId)
+        return get(ret)
+    }
+
+    fun newFunction(jsValue: JSConvertible, functionName: String, functionId: Int) = newFunction(jsValue.ref, functionName, functionId)
 }
