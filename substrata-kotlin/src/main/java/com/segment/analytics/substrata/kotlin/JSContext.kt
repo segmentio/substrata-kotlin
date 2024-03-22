@@ -94,6 +94,7 @@ class JSContext(
                     value.asJSObject()
                 }
             }
+            QuickJS.TYPE_EXCEPTION -> value.asJSException()
             QuickJS.TYPE_NULL -> JSNull
             QuickJS.TYPE_UNDEFINED -> JSUndefined
 //            QuickJS.TYPE_EXCEPTION -> getExecption()
@@ -289,4 +290,5 @@ class JSContext(
     }
 
     fun newFunction(jsValue: JSConvertible, functionName: String, functionId: Int) = newFunction(jsValue.ref, functionName, functionId)
+    fun getJSException() = QuickJS.getException(contextRef)
 }

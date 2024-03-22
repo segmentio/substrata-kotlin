@@ -6,18 +6,28 @@ static void java_callback_finalizer(JSRuntime *rt, JSValue val)
     JavaCallbackData *data = (JavaCallbackData*) JS_GetOpaque(val, java_callback_class_id);
 
     JNIEnv *env;
-    data->vm->AttachCurrentThread(&env, NULL);
+    bool attached = false;
+    switch(data->vm->GetEnv((void**)&env, JNI_VERSION_1_6)) {
+        case JNI_OK:
+            break;
+        case JNI_EDETACHED:
+            data->vm->AttachCurrentThread(&env, NULL);
+            attached = true;
+            break;
+    }
     if (env != NULL) {
         env->DeleteGlobalRef(data->js_context);
     }
-    data->vm->DetachCurrentThread();
+    if (attached) {
+        data->vm->DetachCurrentThread();
+    }
 
     js_free_rt(rt, data);
 }
 
 static JSClassDef java_callback_class = {
         "JavaCallback",
-        .finalizer = java_callback_finalizer,
+        java_callback_finalizer,
 };
 
 int java_callback_init(JSContext *ctx) {

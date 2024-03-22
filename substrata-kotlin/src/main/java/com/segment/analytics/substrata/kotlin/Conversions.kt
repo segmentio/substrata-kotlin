@@ -11,6 +11,7 @@ inline fun <reified T> JSConvertible.wrap() : T = with(context) {
         JSArray::class -> getJSArray(this@wrap)
         JSObject::class -> getJSObject(this@wrap)
         JSFunction::class -> getJSFunction(this@wrap)
+        JSException::class -> getJSException()
         else -> context.JSNull
     }
     return result as T
@@ -44,6 +45,8 @@ fun JSConvertible.asJSArray(): JSArray? =  cast()
 fun JSConvertible.asJSObject(): JSObject? = cast()
 
 fun JSConvertible.asJSFunction(): JSFunction? = cast()
+
+fun JSConvertible.asJSException(): JSException? = wrap()
 
 fun String.toJSValue(context: JSContext) = context.newJSValue(this)
 

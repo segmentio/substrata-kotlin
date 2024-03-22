@@ -190,6 +190,14 @@ class JSObject(
     }
 
     override fun contains(key: String) = context.hasProperty(this, key)
+
+    fun register(function: String, body: JSFunctionBody) {
+        if (contains(function)) return
+
+        val functionID = JSShared.nextFunctionId
+        JSShared.functions[functionID] = body
+        context.newFunction(this, function, functionID)
+    }
 }
 
 class JSFunction(jsValue: JSValue) : JSConvertible by jsValue {
@@ -200,6 +208,42 @@ class JSFunction(jsValue: JSValue) : JSConvertible by jsValue {
         return context.get(ret)
     }
 }
+
+
+class JSException private constructor(
+    val isError: Boolean,
+    private val exception: String,
+    stack: String
+) {
+    /**
+     * The stack trace.
+     */
+    val stack: String?
+
+    init {
+        this.stack = stack
+    }
+
+    /**
+     * The exception message.
+     */
+    fun getException(): String {
+        return exception
+    }
+
+    override fun toString(): String {
+        val sb = StringBuilder()
+        if (!isError) {
+            sb.append("Throw: ")
+        }
+        sb.append(exception).append("\n")
+        if (stack != null) {
+            sb.append(stack)
+        }
+        return sb.toString()
+    }
+}
+
 
 typealias JSFunctionBody = (List<Any?>) -> Any?
 

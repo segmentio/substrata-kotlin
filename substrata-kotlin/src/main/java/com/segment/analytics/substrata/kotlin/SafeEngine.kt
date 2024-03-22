@@ -41,7 +41,10 @@ class JSScope(val timeoutInSeconds: Long = 120L): Releasable {
     }
 
     override fun release() {
-        engine.release()
+        executor.submit {
+            engine.release()
+        }.get(timeoutInSeconds, TimeUnit.SECONDS)
+        executor.shutdown()
     }
 }
 

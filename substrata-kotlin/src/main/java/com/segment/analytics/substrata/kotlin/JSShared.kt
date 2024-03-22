@@ -19,11 +19,11 @@ class JSShared {
             functions[functionId]?.let { f ->
                 val jsValues = args.map { return@map context.get<Any>(it) }
                 f(jsValues)?.let {
-                    return it.toJSValue(context).ref
+                    if (it !is Unit) return it.toJSValue(context).ref
                 }
             }
 
-            return 0
+            return context.JSUndefined.ref
         }
     }
 }

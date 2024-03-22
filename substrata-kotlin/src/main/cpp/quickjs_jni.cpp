@@ -23,6 +23,7 @@
 //      }
 //    }
 
+#define FREED_VALUE JS_UNDEFINED
 
 #define COPY_JS_VALUE(JS_CONTEXT, JS_VALUE, RESULT)                                    \
     do {                                                                               \
@@ -34,7 +35,16 @@
             JS_FreeValue((JS_CONTEXT), (JS_VALUE));                                    \
         }                                                                              \
     } while (0)
+// Free a JSValue and set it to the sentinel value
+void safeFreeValue(JSContext *ctx, JSValue *value) {
+    JS_FreeValue(ctx, *value);
+    *value = FREED_VALUE;
+}
 
+// Check if a JSValue has been freed
+int isValueFreed(JSValue value) {
+    return JS_VALUE_GET_TAG(value) == JS_TAG_UNDEFINED;
+}
 extern "C"
 JNIEXPORT void JNICALL
 Java_com_segment_analytics_substrata_kotlin_QuickJS_00024Companion_freeValue(JNIEnv *env,
@@ -46,7 +56,9 @@ Java_com_segment_analytics_substrata_kotlin_QuickJS_00024Companion_freeValue(JNI
     CHECK_NULL(env, ctx, MSG_NULL_JS_CONTEXT);
     JSValue *val = (JSValue *) value;
     CHECK_NULL(env, val, MSG_NULL_JS_VALUE);
-    JS_FreeValue(ctx, *val);
+    if (!isValueFreed(*val)) {
+        safeFreeValue(ctx, val);
+    }
     js_free_rt(JS_GetRuntime(ctx), val);
 }
 extern "C"
@@ -602,7 +614,15 @@ static JSValue invoke(JSContext *ctx, JSValueConst this_val, int argc, JSValueCo
     JavaCallbackData *data = (JavaCallbackData*)JS_GetOpaque(*func_data, java_callback_class_id);
 
     JNIEnv *env;
-    data->vm->AttachCurrentThread(&env, NULL);
+    bool attached = false;
+    switch(data->vm->GetEnv((void**)&env, JNI_VERSION_1_6)) {
+        case JNI_OK:
+            break;
+        case JNI_EDETACHED:
+            data->vm->AttachCurrentThread(&env, NULL);
+            attached = true;
+            break;
+    }
 
     jclass clazz = env->FindClass( "com/segment/analytics/substrata/kotlin/JSShared" );
     jmethodID  method = env->GetStaticMethodID(clazz, "jsCallback",
@@ -622,6 +642,9 @@ static JSValue invoke(JSContext *ctx, JSValueConst this_val, int argc, JSValueCo
     JSValue *retVal = (JSValue *) ret;
 
     env->DeleteLocalRef(params);
+    if (attached) {
+        data->vm->DetachCurrentThread();
+    }
 
     return *retVal;
 
@@ -664,4 +687,49 @@ Java_com_segment_analytics_substrata_kotlin_QuickJS_00024Companion_newFunction(J
     COPY_JS_VALUE(ctx, newFunction, result);
     CHECK_NULL_RET(env, result, MSG_OOM);
     return (jlong) result;
+}
+extern "C"
+JNIEXPORT jobject JNICALL
+Java_com_segment_analytics_substrata_kotlin_QuickJS_00024Companion_getException(JNIEnv *env,
+                                                                                jobject thiz,
+                                                                                jlong context) {
+
+    JSContext *ctx = (JSContext *) context;
+    CHECK_NULL_RET(env, ctx, MSG_NULL_JS_CONTEXT);
+
+    jclass js_exception_class = env->FindClass( "com/segment/analytics/substrata/kotlin/JSException");
+    CHECK_NULL_RET(env, js_exception_class, "Can't find JSException");
+
+    jmethodID constructor_id = env->GetMethodID(js_exception_class, "<init>", "(ZLjava/lang/String;Ljava/lang/String;)V");
+    CHECK_NULL_RET(env, constructor_id, "Can't find JSException constructor");
+
+    const char *exception_str = NULL;
+    const char *stack_str = NULL;
+
+    JSValue exception = JS_GetException(ctx);
+    exception_str = JS_ToCString(ctx, exception);
+    jboolean is_error = (jboolean) JS_IsError(ctx, exception);
+    if (is_error) {
+        JSValue stack = JS_GetPropertyStr(ctx, exception, "stack");
+        if (!JS_IsUndefined(stack)) {
+            stack_str = JS_ToCString(ctx, stack);
+        }
+        JS_FreeValue(ctx, stack);
+    }
+    JS_FreeValue(ctx, exception);
+
+    jstring exception_j_str = (exception_str != NULL) ? env->NewStringUTF(exception_str) : NULL;
+    jstring stack_j_str = (stack_str != NULL) ? env->NewStringUTF(stack_str) : NULL;
+
+    if (exception_str != NULL) {
+        JS_FreeCString(ctx, exception_str);
+    }
+    if (stack_str != NULL) {
+        JS_FreeCString(ctx, stack_str);
+    }
+
+    jobject result = env->NewObject(js_exception_class, constructor_id, is_error, exception_j_str, stack_j_str);
+    CHECK_NULL_RET(env, result, "Can't create instance of JSException");
+
+    return result;
 }

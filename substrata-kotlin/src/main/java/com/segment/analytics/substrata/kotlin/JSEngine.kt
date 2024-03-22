@@ -27,6 +27,10 @@ class JSEngine internal constructor(
 
     constructor(): this(QuickJS.createJSRuntime())
 
+    init {
+        setupConsole()
+    }
+
     override fun release() {
         context.release()
         runtime.release()
@@ -44,6 +48,9 @@ class JSEngine internal constructor(
                 result = value
             } else try {
                 context.evaluate(key).let { v ->
+                    if (v is JSException) {
+                        return JSUndefined
+                    }
                     result = v
                 }
             } catch (_ : Exception) {}
@@ -63,13 +70,7 @@ class JSEngine internal constructor(
 
     fun export(function: String, body: JSFunctionBody) = extend(global, function, body)
 
-    fun extend(obj: JSObject, function: String, body: JSFunctionBody) {
-        if (obj.contains(function)) return
-
-        val functionID = JSShared.nextFunctionId
-        JSShared.functions[functionID] = body
-        context.newFunction(obj, function, functionID)
-    }
+    fun extend(obj: JSObject, function: String, body: JSFunctionBody) = obj.register(function, body)
 
     fun extend(objectName: String, functionName: String, body: JSFunctionBody) {
         /*
@@ -80,7 +81,7 @@ class JSEngine internal constructor(
          */
         val jsObj: JSObject = get(objectName).let { value ->
             when (value) {
-                JSNull, JSUndefined -> {
+                JSNull, JSUndefined, is JSException -> {
                     val newObj = context.newObject()
                     global[objectName] = newObj
                     newObj
@@ -118,22 +119,21 @@ class JSEngine internal constructor(
 
     fun evaluate(script: String) = context.evaluate(script)
 
-//
-//    /* ===========================================================================
-//    APIs being called on the jsExecutor and should not be synchronized explicitly
-//    ============================================================================== */
-//    private fun setupConsole() {
-//        // TODO add more versatility + Android log support
-//        val v8Console = JSObject()
-//        v8Console.registerJavaMethod({ _, v8Array ->
-//            val msg = v8Array[0].toString()
-//            println("[JSConsole.I] - $msg")
-//        }, "log")
-//        v8Console.registerJavaMethod({ _, v8Array ->
-//            val msg = v8Array.toString()
-//            println("[JSConsole.E] - $msg")
-//        }, "err")
-//        runtime.add("console", v8Console)
-//    }
+
+    /* ===========================================================================
+    APIs being called on the jsExecutor and should not be synchronized explicitly
+    ============================================================================== */
+    private fun setupConsole() {
+        val v8Console = context.newObject()
+        v8Console.register("log") {
+            val msg = it[0].toString()
+            println("[JSConsole.I] - $msg")
+        }
+        v8Console.register("err") {
+            val msg = it.toString()
+            println("[JSConsole.E] - $msg")
+        }
+        this["console"] = v8Console
+    }
 
 }

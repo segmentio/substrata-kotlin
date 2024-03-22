@@ -27,8 +27,24 @@ class EngineTests {
     @Test
     fun testInit() {
         scope.sync(exceptionHandler) { engine ->
+            val console = engine["console"]
+            assertNotNull(console)
             val dataBridge = engine["DataBridge"]
             assertNotNull(dataBridge)
+        }
+        assertNull(exception)
+    }
+
+    @Test
+    fun testConsole() {
+        val script = """
+            console.log("testing log")
+            var test = 0
+            console.err("testing err")
+        """.trimIndent()
+        scope.sync(exceptionHandler) {
+            it.evaluate(script)
+            assertFalse(false)
         }
         assertNull(exception)
     }
@@ -114,38 +130,6 @@ class EngineTests {
         }
         assertNull(exception)
     }
-
-//    @Test
-//    fun testExtend() {
-//        var data = "Something"
-//        scope.sync(exceptionHandler) { engine ->
-//            engine.extend("foobar", "method1", JSFunction(engine) { obj, params ->
-//                data = "Something new"
-//                null
-//            })
-//            engine.evaluate("foobar.method1()")
-//        }
-//        assertEquals("Something new", data)
-//        assertNull(exception)
-//    }
-//
-//    @Test
-//    fun testExtendObject() {
-//        val script = """
-//            var x = {};
-//        """.trimIndent()
-//        var data = "Something"
-//        scope.sync { engine ->
-//            engine.loadBundle(script.byteInputStream())
-//            engine.extend("x", "method1", JSFunction(engine) { obj, params ->
-//                data = "Something new"
-//                null
-//            })
-//            engine.evaluate("x.method1()")
-//        }
-//        assertEquals("Something new", data)
-//        assertNull(exception)
-//    }
 
     @Test
     fun testCall() {
@@ -272,6 +256,13 @@ class EngineTests {
             }
 
             ret = engine.call("calculator", "minus", 20, 10) as Int
+            assertEquals(10, ret)
+
+
+            ret = engine.evaluate("""
+                var ret = calculator.minus(20, 10)
+                ret
+            """.trimIndent()) as Int
             assertEquals(10, ret)
         }
         assertNull(exception)
