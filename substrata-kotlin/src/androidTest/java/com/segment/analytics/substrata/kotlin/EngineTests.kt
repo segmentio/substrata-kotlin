@@ -22,6 +22,7 @@ class EngineTests {
     @After
     fun tearDown() {
         scope.release()
+        JSShared.reset()
     }
 
     @Test
@@ -39,7 +40,6 @@ class EngineTests {
     fun testConsole() {
         val script = """
             console.log("testing log")
-            var test = 0
             console.err("testing err")
         """.trimIndent()
         scope.sync(exceptionHandler) {

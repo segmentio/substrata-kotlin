@@ -6,13 +6,14 @@ import java.util.concurrent.atomic.AtomicInteger
 class JSShared {
     companion object {
 
-        private val _nextFunctionId = AtomicInteger(0)
+        private var _nextFunctionId = AtomicInteger(0)
         val nextFunctionId: Int
             get() {
                 return _nextFunctionId.getAndIncrement()
             }
 
-        val functions = ConcurrentHashMap<Int, JSFunctionBody>()
+        var functions = ConcurrentHashMap<Int, JSFunctionBody>()
+            private set
 
         @JvmStatic
         fun jsCallback(context: JSContext, functionId: Int, args: LongArray): Long {
@@ -24,6 +25,11 @@ class JSShared {
             }
 
             return context.JSUndefined.ref
+        }
+
+        fun reset() {
+            _nextFunctionId = AtomicInteger(0)
+            functions.clear()
         }
     }
 }

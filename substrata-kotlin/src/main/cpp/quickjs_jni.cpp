@@ -58,8 +58,8 @@ Java_com_segment_analytics_substrata_kotlin_QuickJS_00024Companion_freeValue(JNI
     CHECK_NULL(env, val, MSG_NULL_JS_VALUE);
     if (!isValueFreed(*val)) {
         safeFreeValue(ctx, val);
+        js_free_rt(JS_GetRuntime(ctx), val);
     }
-    js_free_rt(JS_GetRuntime(ctx), val);
 }
 extern "C"
 JNIEXPORT void JNICALL
