@@ -182,6 +182,8 @@ class JSObject(
         return property.toJsonElement()
     }
 
+    override fun getJSFunction(key: String): JSFunction = context.getProperty(this, key)
+
     override fun get(key: String): Any = context.getProperty(this, key)
 
     override fun <T : JSConvertible> getJSConvertible(key: String, converter: JSConverter<T>): T {
@@ -191,12 +193,12 @@ class JSObject(
 
     override fun contains(key: String) = context.hasProperty(this, key)
 
-    fun register(function: String, body: JSFunctionBody) {
-        if (contains(function)) return
+    fun register(function: String, body: JSFunctionBody): JSFunction {
+        if (contains(function)) {
+            return getJSFunction(function)
+        }
 
-        val functionID = JSShared.nextFunctionId
-        JSShared.functions[functionID] = body
-        context.newFunction(this, function, functionID)
+        return context.newFunction(this, function, body)
     }
 }
 
@@ -279,6 +281,8 @@ interface KeyValueObject {
     fun getJSArray(key: String): JSArray
 
     fun getJsonElement(key: String): JsonElement
+
+    fun getJSFunction(key: String): JSFunction
 
     operator fun get(key: String): Any?
 

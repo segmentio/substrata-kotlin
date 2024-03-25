@@ -22,7 +22,6 @@ class EngineTests {
     @After
     fun tearDown() {
         scope.release()
-        JSShared.reset()
     }
 
     @Test

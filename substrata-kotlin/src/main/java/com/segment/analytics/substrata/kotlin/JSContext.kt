@@ -11,6 +11,8 @@ class JSContext(
 
     val JSUndefined = getUndefined()
 
+    val registry = JSRegistry(this)
+
     fun addReferenceHandler(handler: ReferenceHandler) {
         referenceHandlers.add(handler)
     }
@@ -284,11 +286,13 @@ class JSContext(
         return call(func.ref, obj.ref, refs)
     }
 
-    fun newFunction(valueRef: Long, functionName: String, functionId: Int): JSFunction {
+    fun newFunction(valueRef: Long, functionName: String, body: JSFunctionBody): JSFunction {
+        val functionId = registry.nextFunctionId
+        registry.functions[functionId] = body
         val ret = QuickJS.newFunction(this, contextRef, valueRef, functionName, functionId)
         return get(ret)
     }
 
-    fun newFunction(jsValue: JSConvertible, functionName: String, functionId: Int) = newFunction(jsValue.ref, functionName, functionId)
+    fun newFunction(jsValue: JSConvertible, functionName: String, body: JSFunctionBody) = newFunction(jsValue.ref, functionName, body)
     fun getJSException() = QuickJS.getException(contextRef)
 }

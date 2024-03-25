@@ -624,9 +624,9 @@ static JSValue invoke(JSContext *ctx, JSValueConst this_val, int argc, JSValueCo
             break;
     }
 
-    jclass clazz = env->FindClass( "com/segment/analytics/substrata/kotlin/JSShared" );
-    jmethodID  method = env->GetStaticMethodID(clazz, "jsCallback",
-                                               "(Lcom/segment/analytics/substrata/kotlin/JSContext;I[J)J");
+    jclass clazz = env->FindClass( "com/segment/analytics/substrata/kotlin/JSRegistry" );
+    jmethodID  method = env->GetMethodID(clazz, "jsCallback","(I[J)J");
+    jclass contextClazz = env->FindClass( "com/segment/analytics/substrata/kotlin/JSContext" );
 
     jlongArray params = nullptr;
     if (argc > 0) {;
@@ -638,7 +638,10 @@ static JSValue invoke(JSContext *ctx, JSValueConst this_val, int argc, JSValueCo
         env->SetLongArrayRegion(params, 0, argc, paramsC);
     }
 
-    jlong ret = env->CallStaticLongMethod(clazz, method, data->js_context, (jint)magic, params);
+    jfieldID  field = env->GetFieldID(contextClazz, "registry",
+                                      "Lcom/segment/analytics/substrata/kotlin/JSRegistry;");
+    jobject registry = env->GetObjectField(data->js_context, field);
+    jlong ret = env->CallLongMethod(registry, method, (jint)magic, params);
     JSValue *retVal = (JSValue *) ret;
 
     env->DeleteLocalRef(params);
