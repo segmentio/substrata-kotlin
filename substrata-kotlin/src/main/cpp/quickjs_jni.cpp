@@ -736,3 +736,110 @@ Java_com_segment_analytics_substrata_kotlin_QuickJS_00024Companion_getException(
 
     return result;
 }
+
+static JSValue construct(JSContext *ctx, JSValueConst this_val, int argc, JSValueConst *argv, int magic, JSValue *func_data) {
+    JavaConstructData *data = (JavaConstructData*)JS_GetOpaque(*func_data, magic);
+
+    JNIEnv *env;
+    bool attached = false;
+    switch(data->vm->GetEnv((void**)&env, JNI_VERSION_1_6)) {
+        case JNI_OK:
+            break;
+        case JNI_EDETACHED:
+            data->vm->AttachCurrentThread(&env, NULL);
+            attached = true;
+            break;
+    }
+
+    JSValue result = js_create_from_ctor(ctx, this_val, magic);
+    void *resultPtr = NULL;
+    COPY_JS_VALUE(ctx, result, resultPtr);
+
+    jclass clazz = env->FindClass( "com/segment/analytics/substrata/kotlin/JSRegistry" );
+    jmethodID  method = env->GetMethodID(clazz, "register","(JI[J)V");
+    jclass contextClazz = env->FindClass( "com/segment/analytics/substrata/kotlin/JSContext" );
+
+    jlongArray params = nullptr;
+    if (argc > 0) {;
+        params = env->NewLongArray(argc);
+        jlong paramsC[argc];
+        for (int i = 0; i < argc; i++) {
+            paramsC[i] = JS_ToPointer(env, ctx, argv[i]);
+        }
+        env->SetLongArrayRegion(params, 0, argc, paramsC);
+    }
+
+    jfieldID  field = env->GetFieldID(contextClazz, "registry",
+                                      "Lcom/segment/analytics/substrata/kotlin/JSRegistry;");
+    jobject registry = env->GetObjectField(data->js_context, field);
+    env->CallVoidMethod(registry, method, (jlong)resultPtr, (jint)magic, params);
+
+    if (attached) {
+        data->vm->DetachCurrentThread();
+    }
+
+    return *(JSValue*)resultPtr;
+}
+
+extern "C"
+JNIEXPORT void JNICALL
+Java_com_segment_analytics_substrata_kotlin_QuickJS_00024Companion_newClass(JNIEnv *env,
+                                                                            jobject thiz,
+                                                                            jobject context,
+                                                                            jlong context_ref,
+                                                                            jlong value_ref,
+                                                                            jstring name,
+                                                                            jint id) {
+    JSContext *ctx = (JSContext *) context_ref;
+    CHECK_NULL(env, ctx, MSG_NULL_JS_CONTEXT);
+    JSValue *val = (JSValue *) value_ref;
+    CHECK_NULL(env, val, MSG_NULL_JS_VALUE);
+    JSRuntime *rt = JS_GetRuntime(ctx);
+    const char *class_name = env->GetStringUTFChars(name, NULL);
+
+    // Create class
+    JSClassDef class_def = {
+            class_name,
+            .call = NULL,
+            .exotic = NULL,
+            .gc_mark = NULL,
+            .finalizer = NULL,
+    };
+    JSClassID class_id;
+    JS_NewClassID(&class_id);
+    JS_NewClass(rt, class_id, &class_def);
+
+    // create data that is for constructor callback
+    JavaConstructData *data = NULL;
+    data = (JavaConstructData*) js_malloc_rt(rt, sizeof(JavaConstructData));
+    data->class_id = id;
+    data->js_context = env->NewGlobalRef(context);
+    env->GetJavaVM(&data->vm);
+    JSValue callback = JS_NewObjectClass(ctx, class_id);
+    JS_SetOpaque(callback, data);
+
+    // create constructor
+    JSValue constructor = JS_NewCFunctionData(ctx, construct, 1, class_id, 2, &callback);
+    JS_DefinePropertyValueStr(ctx, *val, class_name,
+                              constructor,
+                              JS_PROP_WRITABLE | JS_PROP_CONFIGURABLE);
+
+    // create prototype
+    JSValue prototype = JS_NewObject(ctx);
+    JS_SetConstructor(ctx, constructor, prototype);
+    void *prototypePtr = NULL;
+    COPY_JS_VALUE(ctx, prototype, prototypePtr);
+
+    // set instance methods, static methods, static properties on prototype
+    jclass clazz = env->FindClass( "com/segment/analytics/substrata/kotlin/JSRegistry" );
+    jmethodID registerProto = env->GetMethodID(clazz, "register","(JI)V");
+    jclass contextClazz = env->FindClass( "com/segment/analytics/substrata/kotlin/JSContext" );
+    jfieldID  field = env->GetFieldID(contextClazz, "registry",
+                                      "Lcom/segment/analytics/substrata/kotlin/JSRegistry;");
+    jobject registry = env->GetObjectField(context, field);
+    env->CallVoidMethod(registry, registerProto, (jlong)prototypePtr, id);
+    JS_SetClassProto(ctx, class_id, prototype);
+
+    // clean up
+    env->ReleaseStringUTFChars(name, class_name);
+}

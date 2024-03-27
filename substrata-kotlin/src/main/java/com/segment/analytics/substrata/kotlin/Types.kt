@@ -3,6 +3,9 @@ package com.segment.analytics.substrata.kotlin
 import com.segment.analytics.substrata.kotlin.JsonElementConverter.toJsonElement
 import com.segment.analytics.substrata.kotlin.JsonElementConverter.wrap
 import kotlinx.serialization.json.JsonElement
+import java.lang.reflect.Field
+import java.lang.reflect.Method
+import java.lang.reflect.Modifier
 
 interface Releasable {
     fun release()
@@ -158,8 +161,8 @@ class JSObject(
         setProperty(this@JSObject, key, v)
     }
 
-    override fun <T : JSConvertible> set(key: String, value: T, converter: JSConverter<T>) {
-        context.setProperty(this, key, value.toJSValue(context))
+    override fun set(key: String, value: JSConvertible) {
+        context.setProperty(this, key, value)
     }
 
     override fun getBoolean(key: String): Boolean = context.getProperty(this, key)
@@ -184,12 +187,9 @@ class JSObject(
 
     override fun getJSFunction(key: String): JSFunction = context.getProperty(this, key)
 
-    override fun get(key: String): Any = context.getProperty(this, key)
+    override fun getJSConvertible(key: String): JSConvertible = context.getProperty(this, key)
 
-    override fun <T : JSConvertible> getJSConvertible(key: String, converter: JSConverter<T>): T {
-        val jsObject =  context.getProperty<JSObject>(this, key)
-        return converter.read(jsObject)
-    }
+    override fun get(key: String): Any = context.getProperty(this, key)
 
     override fun contains(key: String) = context.hasProperty(this, key)
 
@@ -198,7 +198,13 @@ class JSObject(
             return getJSFunction(function)
         }
 
-        return context.newFunction(this, function, body)
+        return context.registerFunction(this, function, body)
+    }
+
+    fun register(clazzName: String, clazz: JSClass) {
+        if (contains(clazzName)) return
+
+        context.registerClass(this, clazzName, clazz)
     }
 }
 
@@ -209,6 +215,93 @@ class JSFunction(jsValue: JSValue) : JSConvertible by jsValue {
         val ret = context.call(this@JSFunction.ref, obj.ref, p)
         return context.get(ret)
     }
+}
+
+class JSClass(
+    val context: JSContext,
+    val clazz: Class<*>
+) {
+
+    fun createPrototype(): Any {
+        try {
+            return clazz.newInstance()
+        }
+        catch (e: Exception) {
+            throw Exception("Failed to create prototype for ${clazz.name}. Exported class is required to have a parameterless constructor.")
+        }
+    }
+
+    fun createInstance(args: LongArray): Any {
+        if (args.isEmpty()) return clazz.newInstance()
+
+        val params = args.map { return@map context.get<Any>(it) }.toTypedArray()
+        outer@ for (ctor in clazz.constructors) {
+            if (ctor.parameterTypes.size == args.size) {
+                for (type in ctor.parameterTypes) {
+                    if (!type.isInstance(params[0])) {
+                        continue@outer
+                    }
+                }
+                return ctor.newInstance(*params)
+            }
+        }
+
+        throw Exception("No matching constructor found for ${clazz.name} with parameters ${params.contentToString()}")
+    }
+
+    fun getStaticMethods() = getMethods(null) { method ->
+        Modifier.isStatic(method.modifiers)
+    }
+
+    fun getMethods(obj: Any) = getMethods(obj) { method ->
+        !Modifier.isStatic(method.modifiers)
+    }
+
+    fun getStaticFields() = getFields(null) { field ->
+        Modifier.isStatic(field.modifiers)
+    }
+
+    fun getFields(obj: Any) = getFields(obj) { field ->
+        !Modifier.isStatic(field.modifiers)
+    }
+
+    private fun getFields(obj: Any?, condition: (Field) -> Boolean) : Map<String, JSConvertible> {
+        val fields = mutableMapOf<String, JSConvertible>()
+
+        for (field in clazz.fields) {
+            if (condition(field)) {
+                fields[field.name] = field.get(obj)?.toJSValue(context) ?: context.JSNull
+            }
+        }
+
+        return fields
+    }
+
+    private fun getMethods(obj: Any?, condition: (Method) -> Boolean) : Map<String, JSFunctionBody> {
+        val methods = mutableMapOf<String, JSFunctionBody>()
+
+        for (method in clazz.methods) {
+            if (condition(method)) {
+                methods[method.name] = { params ->
+                    val paramsTypes = method.parameterTypes
+                    if (paramsTypes.size != params.size) {
+                        throw Exception("Arguments does not match to Java method ${method.name}")
+                    }
+
+                    for (i in paramsTypes.indices) {
+                        if (!paramsTypes[i].isInstance(params[i])) {
+                            throw Exception("Wrong argument passed to Java method ${method.name}. Expecting ${paramsTypes[i].name}, but was ${params[i]?.javaClass?.name}")
+                        }
+                    }
+
+                    method(obj, *params.toTypedArray())
+                }
+            }
+        }
+
+        return methods
+    }
+
 }
 
 
@@ -266,7 +359,7 @@ interface KeyValueObject {
 
     operator fun set(key: String, value: JsonElement)
 
-    fun <T: JSConvertible> set(key: String, value: T, converter: JSConverter<T>)
+    operator fun set(key: String, value: JSConvertible)
 
     fun getBoolean(key: String): Boolean
 
@@ -284,9 +377,9 @@ interface KeyValueObject {
 
     fun getJSFunction(key: String): JSFunction
 
-    operator fun get(key: String): Any?
+    fun getJSConvertible(key: String): JSConvertible
 
-    fun <T: JSConvertible> getJSConvertible(key: String, converter: JSConverter<T>): T
+    operator fun get(key: String): Any?
 
     fun contains(key: String): Boolean
 }

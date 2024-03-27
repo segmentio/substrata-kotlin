@@ -971,7 +971,8 @@ static inline JSValue JS_NewCFunctionMagic(JSContext *ctx, JSCFunctionMagic *fun
 }
 void JS_SetConstructor(JSContext *ctx, JSValueConst func_obj,
                        JSValueConst proto);
-
+static JSValue js_create_from_ctor(JSContext *ctx, JSValueConst ctor,
+                                   int class_id);
 /* C property definition */
 
 typedef struct JSCFunctionListEntry {

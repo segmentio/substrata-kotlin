@@ -2,6 +2,7 @@ package com.segment.analytics.substrata.kotlin
 
 import java.io.BufferedReader
 import java.io.InputStream
+import kotlin.reflect.KClass
 
 /**
  * J2V8Engine singleton.  Due to the performance cost of creating runtimes in J2V8,
@@ -62,11 +63,11 @@ class JSEngine internal constructor(
 //    fun <T : JSExport> export(objectName: String, obj : T) {
 //        V8JavaAdapter.injectObject(objectName, obj, runtime)
 //    }
-//
-//    fun <T : JSExport> export(className: String, clazz: KClass<T>) {
-//        V8JavaAdapter.injectClass(className, clazz.java, runtime)
-//    }
-//
+
+    fun <T : Any> export(className: String, clazz: KClass<T>) {
+        global.register(className, JSClass(context, clazz.java))
+    }
+
 
     fun export(function: String, body: JSFunctionBody) = extend(global, function, body)
 

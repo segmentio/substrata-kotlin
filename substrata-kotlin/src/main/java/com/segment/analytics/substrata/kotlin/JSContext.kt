@@ -286,13 +286,22 @@ class JSContext(
         return call(func.ref, obj.ref, refs)
     }
 
-    fun newFunction(valueRef: Long, functionName: String, body: JSFunctionBody): JSFunction {
+    fun registerFunction(valueRef: Long, functionName: String, body: JSFunctionBody): JSFunction {
         val functionId = registry.nextFunctionId
         registry.functions[functionId] = body
         val ret = QuickJS.newFunction(this, contextRef, valueRef, functionName, functionId)
         return get(ret)
     }
 
-    fun newFunction(jsValue: JSConvertible, functionName: String, body: JSFunctionBody) = newFunction(jsValue.ref, functionName, body)
+    fun registerFunction(jsValue: JSConvertible, functionName: String, body: JSFunctionBody) = registerFunction(jsValue.ref, functionName, body)
+
+    fun registerClass(valueRef: Long, clazzName: String, clazz: JSClass) {
+        val clazzId = registry.nextClassId
+        registry.classes[clazzId] = clazz
+        QuickJS.newClass(this, contextRef, valueRef, clazzName, clazzId)
+    }
+
+    fun registerClass(jsValue: JSConvertible, clazzName: String, clazz: JSClass) = registerClass(jsValue.ref, clazzName, clazz)
+
     fun getJSException() = QuickJS.getException(contextRef)
 }

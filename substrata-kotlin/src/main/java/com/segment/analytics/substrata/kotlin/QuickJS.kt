@@ -66,6 +66,7 @@ class QuickJS {
         external fun evaluate(context: Long, script: String, file: String, flags: Int): Long
         external fun isFunction(contextRef: Long, valueRef: Long): Boolean
         external fun newFunction(context: JSContext, contextRef: Long, valueRef: Long, functionName: String, functionId: Int): Long
+        external fun newClass(context: JSContext, contextRef: Long, valueRef: Long, className: String, classId: Int)
         external fun getException(context: Long): JSException
     }
 }
