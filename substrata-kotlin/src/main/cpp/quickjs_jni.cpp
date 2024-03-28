@@ -628,9 +628,8 @@ static JSValue invoke(JSContext *ctx, JSValueConst this_val, int argc, JSValueCo
     jmethodID  method = env->GetMethodID(clazz, "jsCallback","(I[J)J");
     jclass contextClazz = env->FindClass( "com/segment/analytics/substrata/kotlin/JSContext" );
 
-    jlongArray params = nullptr;
-    if (argc > 0) {;
-        params = env->NewLongArray(argc);
+    jlongArray params = env->NewLongArray(argc);
+    if (argc > 0) {
         jlong paramsC[argc];
         for (int i = 0; i < argc; i++) {
             paramsC[i] = JS_ToPointer(env, ctx, argv[i]);
@@ -759,9 +758,8 @@ static JSValue construct(JSContext *ctx, JSValueConst this_val, int argc, JSValu
     jmethodID  method = env->GetMethodID(clazz, "register","(JI[J)V");
     jclass contextClazz = env->FindClass( "com/segment/analytics/substrata/kotlin/JSContext" );
 
-    jlongArray params = nullptr;
-    if (argc > 0) {;
-        params = env->NewLongArray(argc);
+    jlongArray params = env->NewLongArray(argc);
+    if (argc > 0) {
         jlong paramsC[argc];
         for (int i = 0; i < argc; i++) {
             paramsC[i] = JS_ToPointer(env, ctx, argv[i]);
@@ -772,8 +770,10 @@ static JSValue construct(JSContext *ctx, JSValueConst this_val, int argc, JSValu
     jfieldID  field = env->GetFieldID(contextClazz, "registry",
                                       "Lcom/segment/analytics/substrata/kotlin/JSRegistry;");
     jobject registry = env->GetObjectField(data->js_context, field);
-    env->CallVoidMethod(registry, method, (jlong)resultPtr, (jint)magic, params);
+    env->CallVoidMethod(registry, method, (jlong)resultPtr, (jint)data->class_id, params);
 
+    env->DeleteLocalRef(params);
+    env->DeleteGlobalRef(data->js_context);
     if (attached) {
         data->vm->DetachCurrentThread();
     }
@@ -799,7 +799,7 @@ Java_com_segment_analytics_substrata_kotlin_QuickJS_00024Companion_newClass(JNIE
 
     // Create class
     JSClassDef class_def = {
-            class_name,
+            .class_name = class_name,
             .call = NULL,
             .exotic = NULL,
             .gc_mark = NULL,
@@ -809,7 +809,7 @@ Java_com_segment_analytics_substrata_kotlin_QuickJS_00024Companion_newClass(JNIE
     JS_NewClassID(&class_id);
     JS_NewClass(rt, class_id, &class_def);
 
-    // create data that is for constructor callback
+    // create data for constructor callback
     JavaConstructData *data = NULL;
     data = (JavaConstructData*) js_malloc_rt(rt, sizeof(JavaConstructData));
     data->class_id = id;
@@ -818,15 +818,15 @@ Java_com_segment_analytics_substrata_kotlin_QuickJS_00024Companion_newClass(JNIE
     JSValue callback = JS_NewObjectClass(ctx, class_id);
     JS_SetOpaque(callback, data);
 
-    // create constructor
-    JSValue constructor = JS_NewCFunctionData(ctx, construct, 1, class_id, 2, &callback);
-    JS_DefinePropertyValueStr(ctx, *val, class_name,
-                              constructor,
-                              JS_PROP_WRITABLE | JS_PROP_CONFIGURABLE);
-
-    // create prototype
+    // create constructor and prototype
+    JSValue constructor = JS_NewCFunctionData2(ctx, construct, 1, JS_CFUNC_constructor, class_id, 2, &callback);
     JSValue prototype = JS_NewObject(ctx);
+    JS_DefinePropertyValueStr(ctx, *val, class_name,
+                              JS_DupValue(ctx, constructor),
+                              JS_PROP_WRITABLE);
     JS_SetConstructor(ctx, constructor, prototype);
+    JS_SetClassProto(ctx, class_id, prototype);
+
     void *prototypePtr = NULL;
     COPY_JS_VALUE(ctx, prototype, prototypePtr);
 
@@ -838,8 +838,9 @@ Java_com_segment_analytics_substrata_kotlin_QuickJS_00024Companion_newClass(JNIE
                                       "Lcom/segment/analytics/substrata/kotlin/JSRegistry;");
     jobject registry = env->GetObjectField(context, field);
     env->CallVoidMethod(registry, registerProto, (jlong)prototypePtr, id);
-    JS_SetClassProto(ctx, class_id, prototype);
+
 
     // clean up
     env->ReleaseStringUTFChars(name, class_name);
+    JS_FreeValue(ctx, callback);
 }

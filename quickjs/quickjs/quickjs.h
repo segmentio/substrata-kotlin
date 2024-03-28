@@ -956,6 +956,9 @@ JSValue JS_NewCFunction2(JSContext *ctx, JSCFunction *func,
 JSValue JS_NewCFunctionData(JSContext *ctx, JSCFunctionData *func,
                             int length, int magic, int data_len,
                             JSValueConst *data);
+JSValue JS_NewCFunctionData2(JSContext *ctx, JSCFunctionData *func,
+                             int length, JSCFunctionEnum cproto, int magic, int data_len,
+                             JSValueConst *data);
 
 static inline JSValue JS_NewCFunction(JSContext *ctx, JSCFunction *func, const char *name,
                                       int length)
@@ -971,8 +974,8 @@ static inline JSValue JS_NewCFunctionMagic(JSContext *ctx, JSCFunctionMagic *fun
 }
 void JS_SetConstructor(JSContext *ctx, JSValueConst func_obj,
                        JSValueConst proto);
-static JSValue js_create_from_ctor(JSContext *ctx, JSValueConst ctor,
-                                   int class_id);
+JSValue js_create_from_ctor(JSContext *ctx, JSValueConst ctor,
+                            int class_id);
 /* C property definition */
 
 typedef struct JSCFunctionListEntry {

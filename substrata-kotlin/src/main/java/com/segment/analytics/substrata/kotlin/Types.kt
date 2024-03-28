@@ -217,12 +217,13 @@ class JSFunction(jsValue: JSValue) : JSConvertible by jsValue {
     }
 }
 
-class JSClass(
+open class JSClass(
     val context: JSContext,
-    val clazz: Class<*>
+    val clazz: Class<*>,
+    val include: Set<String>? = null
 ) {
 
-    fun createPrototype(): Any {
+    open fun createPrototype(): Any {
         try {
             return clazz.newInstance()
         }
@@ -231,7 +232,7 @@ class JSClass(
         }
     }
 
-    fun createInstance(args: LongArray): Any {
+    open fun createInstance(args: LongArray): Any {
         if (args.isEmpty()) return clazz.newInstance()
 
         val params = args.map { return@map context.get<Any>(it) }.toTypedArray()
@@ -249,20 +250,24 @@ class JSClass(
         throw Exception("No matching constructor found for ${clazz.name} with parameters ${params.contentToString()}")
     }
 
-    fun getStaticMethods() = getMethods(null) { method ->
-        Modifier.isStatic(method.modifiers)
+    open fun getStaticMethods() = getMethods(null) { method ->
+        if (include == null) Modifier.isStatic(method.modifiers)
+        else Modifier.isStatic(method.modifiers) && include.contains(method.name)
     }
 
-    fun getMethods(obj: Any) = getMethods(obj) { method ->
-        !Modifier.isStatic(method.modifiers)
+    open fun getMethods(obj: Any) = getMethods(obj) { method ->
+        if (include == null) !Modifier.isStatic(method.modifiers)
+        else !Modifier.isStatic(method.modifiers) && include.contains(method.name)
     }
 
-    fun getStaticFields() = getFields(null) { field ->
-        Modifier.isStatic(field.modifiers)
+    open fun getStaticFields() = getFields(null) { field ->
+        if (include == null) Modifier.isStatic(field.modifiers)
+        else Modifier.isStatic(field.modifiers) && include.contains(field.name)
     }
 
-    fun getFields(obj: Any) = getFields(obj) { field ->
-        !Modifier.isStatic(field.modifiers)
+    open fun getFields(obj: Any) = getFields(obj) { field ->
+        if (include == null) !Modifier.isStatic(field.modifiers)
+        else !Modifier.isStatic(field.modifiers) && include.contains(field.name)
     }
 
     private fun getFields(obj: Any?, condition: (Field) -> Boolean) : Map<String, JSConvertible> {
@@ -341,8 +346,6 @@ class JSException private constructor(
 
 
 typealias JSFunctionBody = (List<Any?>) -> Any?
-
-open class JSExport
 
 interface KeyValueObject {
     operator fun set(key: String, value: Int)

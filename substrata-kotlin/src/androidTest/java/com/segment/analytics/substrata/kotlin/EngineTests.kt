@@ -184,34 +184,36 @@ class EngineTests {
         assertNull(exception)
     }
 
-//    @Test
-//    fun testExposeObjectAndClass() {
-//        class Bucket : JSExport() {
-//            var empty: Boolean = true
-//
-//            fun fill() {
-//                empty = false
-//            }
-//
-//            fun isEmpty(): Boolean {
-//                return empty
-//            }
-//        }
-//        val bucket1 = Bucket()
-//        scope.sync {engine ->
-//            engine.export( "Bucket", Bucket::class)
-//            engine.export( "bucketMain", bucket1)
-//            engine.evaluate("""var bucketTmp = new Bucket();""")
-//
-//            val test0 = engine.evaluate("bucketMain.isEmpty() && bucketTmp.isEmpty()")
-//            assertEquals(true, test0)
-//            val test1 = engine.evaluate("bucketMain.fill(); bucketMain.isEmpty();")
-//            assertEquals(false, test1)
-//            val test2 = engine.evaluate("bucketTmp.fill(); bucketTmp.isEmpty();")
-//            assertEquals(false, test2)
-//        }
-//        assertNull(exception)
-//    }
+    @Test
+    fun testExposeObjectAndClass() {
+        class Bucket {
+            var empty: Boolean = true
+
+            fun fill() {
+                empty = false
+            }
+
+            fun isEmpty(): Boolean {
+                return empty
+            }
+        }
+        val bucket1 = Bucket()
+        scope.sync(exceptionHandler) {engine ->
+            engine.export( "Bucket", Bucket::class)
+
+            engine.evaluate("let bucket = new Bucket(); bucket")
+            engine.export( bucket1, "Bucket", "bucketMain")
+            engine.evaluate("""var bucketTmp = new Bucket();""")
+
+            val test0 = engine.evaluate("bucketMain.isEmpty() && bucketTmp.isEmpty()")
+            assertEquals(true, test0)
+            val test1 = engine.evaluate("bucketMain.fill(); bucketMain.isEmpty();")
+            assertEquals(false, test1)
+            val test2 = engine.evaluate("bucketTmp.fill(); bucketTmp.isEmpty();")
+            assertEquals(false, test2)
+        }
+        assertNull(exception)
+    }
 
     @Test
     fun testExportMethod() {

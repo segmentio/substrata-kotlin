@@ -69,6 +69,7 @@ class JSContext(
             JSArray::class -> value.asJSArray()
             JSFunction::class -> value.asJSFunction()
             JSValue::class -> value
+            JSException::class -> throw Exception(value.asJSException()!!.getException())
             JSConvertible::class ->value
             Any::class -> getAny(value)
             else -> throw Exception("Property cannot be casted to the type ${T::class.javaClass.name}")

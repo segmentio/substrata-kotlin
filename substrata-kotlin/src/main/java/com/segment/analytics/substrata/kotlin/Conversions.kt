@@ -56,12 +56,14 @@ fun Int.toJSValue(context: JSContext) = context.newJSValue(this)
 
 fun Double.toJSValue(context: JSContext) = context.newJSValue(this)
 
-fun Any.toJSValue(context: JSContext): JSConvertible = when(this) {
+fun Any?.toJSValue(context: JSContext): JSConvertible = when(this) {
+    is JSException -> throw Exception(this.getException())
     is JSConvertible -> this
     is String -> this.toJSValue(context)
     is Boolean -> this.toJSValue(context)
     is Int -> this.toJSValue(context)
     is Double -> this.toJSValue(context)
+    null -> throw Exception("Null cannot be cast to JSValue.")
     else -> throw Exception("Type ${this.javaClass.name} cannot be cast to JSValue.")
 }
 

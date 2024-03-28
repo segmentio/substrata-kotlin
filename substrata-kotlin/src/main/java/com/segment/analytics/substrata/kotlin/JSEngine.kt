@@ -59,13 +59,16 @@ class JSEngine internal constructor(
         return result
     }
 
-//
-//    fun <T : JSExport> export(objectName: String, obj : T) {
-//        V8JavaAdapter.injectObject(objectName, obj, runtime)
-//    }
 
-    fun <T : Any> export(className: String, clazz: KClass<T>) {
-        global.register(className, JSClass(context, clazz.java))
+    fun export(obj : Any, className: String, objectName: String, include: Set<String>? = null) {
+        export(className, obj::class, include)
+
+        val code = "let $objectName = new ${className}(); $objectName"
+        evaluate(code)
+    }
+
+    fun export(className: String, clazz: KClass<*>, include: Set<String>? = null) {
+        global.register(className, JSClass(context, clazz.java, include))
     }
 
 

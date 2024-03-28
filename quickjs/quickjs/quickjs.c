@@ -5160,6 +5160,41 @@ JSValue JS_NewCFunctionData(JSContext *ctx, JSCFunctionData *func,
     return func_obj;
 }
 
+JSValue JS_NewCFunctionData2(JSContext *ctx, JSCFunctionData *func,
+int length, JSCFunctionEnum cproto, int magic, int data_len,
+JSValueConst *data)
+{
+JSCFunctionDataRecord *s;
+    JSValue func_obj;
+    JSObject *p;
+    int i;
+
+    func_obj = JS_NewObjectProtoClass(ctx, ctx->function_proto,
+    JS_CLASS_C_FUNCTION_DATA);
+    if (JS_IsException(func_obj))
+    return func_obj;
+    p = JS_VALUE_GET_OBJ(func_obj);
+    p->is_constructor = (cproto == JS_CFUNC_constructor ||
+    cproto == JS_CFUNC_constructor_magic ||
+    cproto == JS_CFUNC_constructor_or_func ||
+    cproto == JS_CFUNC_constructor_or_func_magic);
+    s = js_malloc(ctx, sizeof(*s) + data_len * sizeof(JSValue));
+    if (!s) {
+    JS_FreeValue(ctx, func_obj);
+    return JS_EXCEPTION;
+    }
+    s->func = func;
+    s->length = length;
+    s->data_len = data_len;
+    s->magic = magic;
+    for(i = 0; i < data_len; i++)
+    s->data[i] = JS_DupValue(ctx, data[i]);
+    JS_SetOpaque(func_obj, s);
+    js_function_set_properties(ctx, func_obj,
+    JS_ATOM_empty_string, length);
+    return func_obj;
+    }
+
 static JSContext *js_autoinit_get_realm(JSProperty *pr)
 {
     return (JSContext *)(pr->u.init.realm_and_id & ~3);
@@ -5724,7 +5759,7 @@ static void mark_children(JSRuntime *rt, JSGCObjectHeader *gp,
 
 static void gc_decref_child(JSRuntime *rt, JSGCObjectHeader *p)
 {
-    assert(p->ref_count > 0);
+    if (p->ref_count <= 0) return;
     p->ref_count--;
     if (p->ref_count == 0 && p->mark == 1) {
         list_del(&p->link);
@@ -18658,7 +18693,7 @@ static JSContext *JS_GetFunctionRealm(JSContext *ctx, JSValueConst func_obj)
     return realm;
 }
 
-static JSValue js_create_from_ctor(JSContext *ctx, JSValueConst ctor,
+JSValue js_create_from_ctor(JSContext *ctx, JSValueConst ctor,
                                    int class_id)
 {
     JSValue proto, obj;
