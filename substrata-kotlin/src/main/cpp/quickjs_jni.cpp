@@ -772,8 +772,6 @@ static JSValue construct(JSContext *ctx, JSValueConst this_val, int argc, JSValu
     jobject registry = env->GetObjectField(data->js_context, field);
     env->CallVoidMethod(registry, method, (jlong)resultPtr, (jint)data->class_id, params);
 
-    env->DeleteLocalRef(params);
-    env->DeleteGlobalRef(data->js_context);
     if (attached) {
         data->vm->DetachCurrentThread();
     }
