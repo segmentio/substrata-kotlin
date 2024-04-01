@@ -216,6 +216,37 @@ class EngineTests {
     }
 
     @Test
+    fun testExtendClass() {
+        class MyJSClass {
+            fun test(p: Int): Int {
+                return p
+            }
+        }
+        scope.sync(exceptionHandler) {engine ->
+            engine.export( "MyJSClass", MyJSClass::class)
+            engine.evaluate("""
+        class OtherClass extends MyJSClass {
+          constructor() {
+            super()
+            console.log("OtherClass created")
+          }
+        
+          test(p) {
+            console.log("OtherClass was muthatrukin called!!!!!!!")
+            let r = super.test(p)
+            console.log("super was just called.")
+            return r + 1
+          }
+        }
+        """)
+
+            val test0 = engine.evaluate("let b = new OtherClass(); b.test(1)")
+            assertEquals(2, test0)
+        }
+        assertNull(exception)
+    }
+
+    @Test
     fun testExportMethod() {
         scope.sync(exceptionHandler) { engine ->
             engine.export("add") { params ->

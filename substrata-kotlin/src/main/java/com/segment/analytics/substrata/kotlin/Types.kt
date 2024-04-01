@@ -294,7 +294,7 @@ open class JSClass(
                     }
 
                     for (i in paramsTypes.indices) {
-                        if (!paramsTypes[i].isInstance(params[i])) {
+                        if (paramsTypes[i] == params[i]?.javaClass) {
                             throw Exception("Wrong argument passed to Java method ${method.name}. Expecting ${paramsTypes[i].name}, but was ${params[i]?.javaClass?.name}")
                         }
                     }
