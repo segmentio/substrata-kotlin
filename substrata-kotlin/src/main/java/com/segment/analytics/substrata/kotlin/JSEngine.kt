@@ -68,7 +68,7 @@ class JSEngine internal constructor(
     }
 
     fun export(className: String, clazz: KClass<*>, include: Set<String>? = null) {
-        global.register(className, JSClass(context, clazz.java, include))
+        global.register(className, JSClass(context, clazz, include))
     }
 
 

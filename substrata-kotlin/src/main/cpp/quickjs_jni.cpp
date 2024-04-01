@@ -842,3 +842,37 @@ Java_com_segment_analytics_substrata_kotlin_QuickJS_00024Companion_newClass(JNIE
     env->ReleaseStringUTFChars(name, class_name);
     JS_FreeValue(ctx, callback);
 }
+extern "C"
+JNIEXPORT void JNICALL
+Java_com_segment_analytics_substrata_kotlin_QuickJS_00024Companion_newProperty(JNIEnv *env,
+                                                                               jobject thiz,
+                                                                               jobject js_context,
+                                                                               jlong context,
+                                                                               jlong value,
+                                                                               jstring name,
+                                                                               jint getter_id,
+                                                                               jint setter_id) {
+    JSContext *ctx = (JSContext *) context;
+    CHECK_NULL(env, ctx, MSG_NULL_JS_CONTEXT);
+    JSValue *val = (JSValue *) value;
+    CHECK_NULL(env, val, MSG_NULL_JS_VALUE);
+
+    // create JavaCallbackData that carries JSContext instance for later use in callback
+    JSRuntime *rt = JS_GetRuntime(ctx);
+    JavaCallbackData *data = NULL;
+    data = (JavaCallbackData*) js_malloc_rt(rt, sizeof(JavaCallbackData));
+    JSValue callback = JS_NewObjectClass(ctx, java_callback_class_id);
+    env->GetJavaVM(&data->vm);
+    data->js_context =  env->NewGlobalRef(js_context);
+    JS_SetOpaque(callback, data);
+
+    const char *name_utf = env->GetStringUTFChars(name, NULL);
+    JSAtom propAtom = JS_NewAtom(ctx, name_utf);
+    JSValue getter = JS_NewCFunctionData(ctx, invoke, 1, getter_id, 2, &callback);
+    JSValue setter = JS_NewCFunctionData(ctx, invoke, 1, setter_id, 2, &callback);
+
+    JS_DefinePropertyGetSet(ctx, *val, propAtom, JS_DupValue(ctx, getter), JS_DupValue(ctx, setter), JS_PROP_HAS_WRITABLE | JS_PROP_HAS_ENUMERABLE | JS_PROP_HAS_GET);
+
+    env->ReleaseStringUTFChars(name, name_utf);
+    JS_FreeValue(ctx, callback);
+}

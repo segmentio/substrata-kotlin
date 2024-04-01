@@ -216,6 +216,29 @@ class EngineTests {
     }
 
     @Test
+    fun testGetterSetter() {
+        class Bucket {
+            var empty: Boolean = true
+        }
+        val bucket1 = Bucket()
+        scope.sync(exceptionHandler) {engine ->
+            engine.export( "Bucket", Bucket::class)
+
+            engine.evaluate("let bucket = new Bucket(); bucket")
+            engine.export( bucket1, "Bucket", "bucketMain")
+            engine.evaluate("""var bucketTmp = new Bucket();""")
+
+            val test0 = engine.evaluate("bucketMain.empty && bucketTmp.empty")
+            assertEquals(true, test0)
+            val test1 = engine.evaluate("bucketMain.empty = false; bucketMain.empty;")
+            assertEquals(false, test1)
+            val test2 = engine.evaluate("bucketTmp.empty = false; bucketTmp.empty;")
+            assertEquals(false, test2)
+        }
+        assertNull(exception)
+    }
+
+    @Test
     fun testExtendClass() {
         class MyJSClass {
             fun test(p: Int): Int {

@@ -304,5 +304,20 @@ class JSContext(
 
     fun registerClass(jsValue: JSConvertible, clazzName: String, clazz: JSClass) = registerClass(jsValue.ref, clazzName, clazz)
 
+
+    fun registerProperty(valueRef: Long, propertyName: String, property: JSProperty) {
+        val getterId = registry.nextFunctionId
+        registry.functions[getterId] = {
+            property.getter()
+        }
+        val setterId = registry.nextFunctionId
+        registry.functions[setterId] = {
+            property.setter(it[0])
+        }
+        QuickJS.newProperty(this, contextRef, valueRef, propertyName, getterId, setterId)
+    }
+
+    fun registerProperty(jsValue: JSConvertible, propertyName: String, property: JSProperty) = registerProperty(jsValue.ref, propertyName, property)
+
     fun getJSException() = QuickJS.getException(contextRef)
 }

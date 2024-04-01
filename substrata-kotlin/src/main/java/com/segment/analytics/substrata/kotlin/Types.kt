@@ -6,6 +6,17 @@ import kotlinx.serialization.json.JsonElement
 import java.lang.reflect.Field
 import java.lang.reflect.Method
 import java.lang.reflect.Modifier
+import kotlin.reflect.KClass
+import kotlin.reflect.KFunction
+import kotlin.reflect.KMutableProperty
+import kotlin.reflect.KProperty
+import kotlin.reflect.KProperty1
+import kotlin.reflect.full.createInstance
+import kotlin.reflect.full.memberFunctions
+import kotlin.reflect.full.memberProperties
+import kotlin.reflect.full.staticFunctions
+import kotlin.reflect.full.staticProperties
+import kotlin.reflect.full.valueParameters
 
 interface Releasable {
     fun release()
@@ -201,6 +212,12 @@ class JSObject(
         return context.registerFunction(this, function, body)
     }
 
+    fun register(propertyName: String, property: JSProperty) {
+        if (contains(propertyName)) return
+
+        return context.registerProperty(this, propertyName, property)
+    }
+
     fun register(clazzName: String, clazz: JSClass) {
         if (contains(clazzName)) return
 
@@ -219,93 +236,134 @@ class JSFunction(jsValue: JSValue) : JSConvertible by jsValue {
 
 open class JSClass(
     val context: JSContext,
-    val clazz: Class<*>,
+    val clazz: KClass<*>,
     val include: Set<String>? = null
 ) {
 
     open fun createPrototype(): Any {
         try {
-            return clazz.newInstance()
+            return clazz.createInstance()
         }
         catch (e: Exception) {
-            throw Exception("Failed to create prototype for ${clazz.name}. Exported class is required to have a parameterless constructor.")
+            throw Exception("Failed to create prototype for ${clazz.simpleName}. Exported class is required to have a parameterless constructor.")
         }
     }
 
     open fun createInstance(args: LongArray): Any {
-        if (args.isEmpty()) return clazz.newInstance()
+        if (args.isEmpty()) return clazz.createInstance()
 
         val params = args.map { return@map context.get<Any>(it) }.toTypedArray()
         outer@ for (ctor in clazz.constructors) {
-            if (ctor.parameterTypes.size == args.size) {
-                for (type in ctor.parameterTypes) {
-                    if (!type.isInstance(params[0])) {
+            if (ctor.valueParameters.size == args.size) {
+                for (i in ctor.valueParameters.indices) {
+                    if (ctor.valueParameters[i].type.classifier != params[i]::class) {
                         continue@outer
                     }
                 }
-                return ctor.newInstance(*params)
+                return ctor.call(*params)
             }
         }
 
-        throw Exception("No matching constructor found for ${clazz.name} with parameters ${params.contentToString()}")
+        throw Exception("No matching constructor found for ${clazz.simpleName} with parameters ${params.contentToString()}")
     }
 
-    open fun getStaticMethods() = getMethods(null) { method ->
-        if (include == null) Modifier.isStatic(method.modifiers)
-        else Modifier.isStatic(method.modifiers) && include.contains(method.name)
-    }
-
-    open fun getMethods(obj: Any) = getMethods(obj) { method ->
-        if (include == null) !Modifier.isStatic(method.modifiers)
-        else !Modifier.isStatic(method.modifiers) && include.contains(method.name)
-    }
-
-    open fun getStaticFields() = getFields(null) { field ->
-        if (include == null) Modifier.isStatic(field.modifiers)
-        else Modifier.isStatic(field.modifiers) && include.contains(field.name)
-    }
-
-    open fun getFields(obj: Any) = getFields(obj) { field ->
-        if (include == null) !Modifier.isStatic(field.modifiers)
-        else !Modifier.isStatic(field.modifiers) && include.contains(field.name)
-    }
-
-    private fun getFields(obj: Any?, condition: (Field) -> Boolean) : Map<String, JSConvertible> {
-        val fields = mutableMapOf<String, JSConvertible>()
-
-        for (field in clazz.fields) {
-            if (condition(field)) {
-                fields[field.name] = field.get(obj)?.toJSValue(context) ?: context.JSNull
-            }
-        }
-
-        return fields
-    }
-
-    private fun getMethods(obj: Any?, condition: (Method) -> Boolean) : Map<String, JSFunctionBody> {
+    open fun getStaticMethods(): Map<String, JSFunctionBody> {
         val methods = mutableMapOf<String, JSFunctionBody>()
 
-        for (method in clazz.methods) {
-            if (condition(method)) {
-                methods[method.name] = { params ->
-                    val paramsTypes = method.parameterTypes
-                    if (paramsTypes.size != params.size) {
-                        throw Exception("Arguments does not match to Java method ${method.name}")
-                    }
-
-                    for (i in paramsTypes.indices) {
-                        if (paramsTypes[i] == params[i]?.javaClass) {
-                            throw Exception("Wrong argument passed to Java method ${method.name}. Expecting ${paramsTypes[i].name}, but was ${params[i]?.javaClass?.name}")
-                        }
-                    }
-
-                    method(obj, *params.toTypedArray())
+        for (method in clazz.staticFunctions) {
+            methods[method.name] = { params ->
+                val methodParams = method.valueParameters
+                if (methodParams.size != params.size) {
+                    throw Exception("Arguments does not match to Java method ${method.name}")
                 }
+
+                for (i in methodParams.indices) {
+                    if (methodParams[i].type.classifier != params[i]!!::class) {
+                        throw Exception("Wrong argument passed to Java method ${method.name}. Expecting ${methodParams[i]::class.simpleName}, but was ${params[i]!!::class.simpleName}")
+                    }
+                }
+
+                method.call(*params.toTypedArray())
             }
         }
 
         return methods
     }
+
+    open fun getMethods(obj: Any): Map<String, JSFunctionBody> {
+        val methods = mutableMapOf<String, JSFunctionBody>()
+
+        for (method in clazz.memberFunctions) {
+            methods[method.name] = { params ->
+                val methodParams = method.valueParameters
+                if (methodParams.size != params.size) {
+                    throw Exception("Arguments does not match to Java method ${method.name}")
+                }
+
+                for (i in methodParams.indices) {
+                    if (methodParams[i].type.classifier != params[i]!!::class) {
+                        throw Exception("Wrong argument passed to Java method ${method.name}. Expecting ${methodParams[i]::class.simpleName}, but was ${params[i]!!::class.simpleName}")
+                    }
+                }
+
+                method.call(obj, *params.toTypedArray())
+            }
+        }
+
+        return methods
+    }
+
+    open fun getStaticProperties() : Map<String, JSProperty> {
+        val properties = mutableMapOf<String, JSProperty>()
+
+        for (property in clazz.staticProperties) {
+            properties[property.name] = JSProperty(
+                getter = {
+                    return@JSProperty property.get()
+                },
+                setter = { param ->
+                    if (property is KMutableProperty<*>) {
+                        property.setter.call(param)
+                    }
+                    else throw Exception("Property ${property.name} does not have a setter")
+                }
+            )
+        }
+
+        return properties
+    }
+
+    open fun getProperties(obj: Any) : Map<String, JSProperty> {
+        val properties = mutableMapOf<String, JSProperty>()
+
+        for (property in clazz.memberProperties) {
+            properties[property.name] = JSProperty(
+                getter = {
+                    return@JSProperty property.getter.call(obj)
+                },
+                setter = { param ->
+                    if (property is KMutableProperty<*>) {
+                        property.setter.call(obj, param)
+                    }
+                    else throw Exception("Property ${property.name} does not have a setter")
+                }
+            )
+        }
+
+        return properties
+    }
+
+//    private fun getFields(obj: Any?, condition: (Field) -> Boolean) : Map<String, JSConvertible> {
+//        val fields = mutableMapOf<String, JSConvertible>()
+//
+//        for (field in clazz.fields) {
+//            if (condition(field)) {
+//                fields[field.name] = field.get(obj)?.toJSValue(context) ?: context.JSNull
+//            }
+//        }
+//
+//        return fields
+//    }
 
 }
 
@@ -346,6 +404,10 @@ class JSException private constructor(
 
 
 typealias JSFunctionBody = (List<Any?>) -> Any?
+data class JSProperty(
+    val getter: () -> Any?,
+    val setter: (Any?) -> Unit
+)
 
 interface KeyValueObject {
     operator fun set(key: String, value: Int)

@@ -6,6 +6,7 @@ import java.util.concurrent.atomic.AtomicInteger
 class JSRegistry (val context: JSContext) {
     private var _nextFunctionId = AtomicInteger(0)
     private var _nextClassId = AtomicInteger(0)
+    private var _nextPropertyId = AtomicInteger(0)
 
     val nextFunctionId: Int
         get() {
@@ -15,10 +16,16 @@ class JSRegistry (val context: JSContext) {
         get() {
             return _nextClassId.getAndIncrement()
         }
+    val nextPropertyId: Int
+        get() {
+            return _nextPropertyId.getAndIncrement()
+        }
 
     var functions = ConcurrentHashMap<Int, JSFunctionBody>()
         private set
     var classes = ConcurrentHashMap<Int, JSClass>()
+        private set
+    var properties = ConcurrentHashMap<Int, JSProperty>()
         private set
 
     fun jsCallback(functionId: Int, args: LongArray): Long {
@@ -47,8 +54,8 @@ class JSRegistry (val context: JSContext) {
                 jsProto.register(function, body)
             }
 
-            for ((key, value) in clazz.getStaticFields()) {
-                jsProto[key] = value
+            for ((property, getterSetter) in clazz.getStaticProperties()) {
+                jsProto.register(property, getterSetter)
             }
         }
     }
@@ -59,8 +66,8 @@ class JSRegistry (val context: JSContext) {
     fun register(jsObjRef: Long, classId: Int, args: LongArray) {
         classes[classId]?.let { clazz ->
             val jsObj: JSObject = context.get(jsObjRef)
-            for ((key, value) in clazz.getFields(clazz.createInstance(args))) {
-                jsObj[key] = value
+            for ((property, getterSetter) in clazz.getProperties(clazz.createInstance(args))) {
+                jsObj.register(property, getterSetter)
             }
         }
     }

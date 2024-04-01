@@ -68,5 +68,6 @@ class QuickJS {
         external fun newFunction(context: JSContext, contextRef: Long, valueRef: Long, functionName: String, functionId: Int): Long
         external fun newClass(context: JSContext, contextRef: Long, valueRef: Long, className: String, classId: Int)
         external fun getException(context: Long): JSException
+        external fun newProperty(jsContext: JSContext, contextRef: Long, valueRef: Long, propertyName: String, getterId: Int, setterId: Int)
     }
 }
