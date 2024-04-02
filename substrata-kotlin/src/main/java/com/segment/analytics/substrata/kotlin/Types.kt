@@ -11,6 +11,8 @@ import kotlin.reflect.KFunction
 import kotlin.reflect.KMutableProperty
 import kotlin.reflect.KProperty
 import kotlin.reflect.KProperty1
+import kotlin.reflect.full.companionObject
+import kotlin.reflect.full.companionObjectInstance
 import kotlin.reflect.full.createInstance
 import kotlin.reflect.full.memberFunctions
 import kotlin.reflect.full.memberProperties
@@ -237,7 +239,7 @@ class JSFunction(jsValue: JSValue) : JSConvertible by jsValue {
 open class JSClass(
     val context: JSContext,
     val clazz: KClass<*>,
-    val include: Set<String>? = null
+    val filter: Set<String> = emptySet()
 ) {
 
     open fun createPrototype(): Any {
@@ -267,87 +269,57 @@ open class JSClass(
         throw Exception("No matching constructor found for ${clazz.simpleName} with parameters ${params.contentToString()}")
     }
 
-    open fun getStaticMethods(): Map<String, JSFunctionBody> {
+    open fun getStaticMethods() = getMethods(clazz.companionObject, clazz.companionObjectInstance)
+
+    open fun getMethods(obj: Any) = getMethods(clazz, obj)
+
+    open fun getStaticProperties() = getProperties(clazz.companionObject, clazz.companionObjectInstance)
+
+    open fun getProperties(obj: Any) = getProperties(clazz, obj)
+
+    private fun getMethods(clazz: KClass<*>?, obj: Any?): Map<String, JSFunctionBody> {
         val methods = mutableMapOf<String, JSFunctionBody>()
 
-        for (method in clazz.staticFunctions) {
-            methods[method.name] = { params ->
-                val methodParams = method.valueParameters
-                if (methodParams.size != params.size) {
-                    throw Exception("Arguments does not match to Java method ${method.name}")
-                }
-
-                for (i in methodParams.indices) {
-                    if (methodParams[i].type.classifier != params[i]!!::class) {
-                        throw Exception("Wrong argument passed to Java method ${method.name}. Expecting ${methodParams[i]::class.simpleName}, but was ${params[i]!!::class.simpleName}")
+        clazz?.let {
+            for (method in it.memberFunctions) {
+                if (filter.contains(method.name)) continue
+                methods[method.name] = { params ->
+                    val methodParams = method.valueParameters
+                    if (methodParams.size != params.size) {
+                        throw Exception("Arguments does not match to Java method ${method.name}")
                     }
-                }
 
-                method.call(*params.toTypedArray())
+                    for (i in methodParams.indices) {
+                        if (methodParams[i].type.classifier != params[i]!!::class) {
+                            throw Exception("Wrong argument passed to Java method ${method.name}. Expecting ${methodParams[i]::class.simpleName}, but was ${params[i]!!::class.simpleName}")
+                        }
+                    }
+
+                    method.call(obj, *params.toTypedArray())
+                }
             }
         }
 
         return methods
     }
 
-    open fun getMethods(obj: Any): Map<String, JSFunctionBody> {
-        val methods = mutableMapOf<String, JSFunctionBody>()
+    private fun getProperties(clazz: KClass<*>?, obj: Any?): Map<String, JSProperty> {
+        val properties = mutableMapOf<String, JSProperty>()
 
-        for (method in clazz.memberFunctions) {
-            methods[method.name] = { params ->
-                val methodParams = method.valueParameters
-                if (methodParams.size != params.size) {
-                    throw Exception("Arguments does not match to Java method ${method.name}")
-                }
-
-                for (i in methodParams.indices) {
-                    if (methodParams[i].type.classifier != params[i]!!::class) {
-                        throw Exception("Wrong argument passed to Java method ${method.name}. Expecting ${methodParams[i]::class.simpleName}, but was ${params[i]!!::class.simpleName}")
+        clazz?.let {
+            for (property in it.memberProperties) {
+                if (filter.contains(property.name)) continue
+                properties[property.name] = JSProperty(
+                    getter = {
+                        return@JSProperty property.getter.call(obj)
+                    },
+                    setter = { param ->
+                        if (property is KMutableProperty<*>) {
+                            property.setter.call(obj, param)
+                        } else throw Exception("Property ${property.name} does not have a setter")
                     }
-                }
-
-                method.call(obj, *params.toTypedArray())
+                )
             }
-        }
-
-        return methods
-    }
-
-    open fun getStaticProperties() : Map<String, JSProperty> {
-        val properties = mutableMapOf<String, JSProperty>()
-
-        for (property in clazz.staticProperties) {
-            properties[property.name] = JSProperty(
-                getter = {
-                    return@JSProperty property.get()
-                },
-                setter = { param ->
-                    if (property is KMutableProperty<*>) {
-                        property.setter.call(param)
-                    }
-                    else throw Exception("Property ${property.name} does not have a setter")
-                }
-            )
-        }
-
-        return properties
-    }
-
-    open fun getProperties(obj: Any) : Map<String, JSProperty> {
-        val properties = mutableMapOf<String, JSProperty>()
-
-        for (property in clazz.memberProperties) {
-            properties[property.name] = JSProperty(
-                getter = {
-                    return@JSProperty property.getter.call(obj)
-                },
-                setter = { param ->
-                    if (property is KMutableProperty<*>) {
-                        property.setter.call(obj, param)
-                    }
-                    else throw Exception("Property ${property.name} does not have a setter")
-                }
-            )
         }
 
         return properties

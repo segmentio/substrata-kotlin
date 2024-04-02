@@ -60,15 +60,15 @@ class JSEngine internal constructor(
     }
 
 
-    fun export(obj : Any, className: String, objectName: String, include: Set<String>? = null) {
-        export(className, obj::class, include)
+    fun export(obj : Any, className: String, objectName: String, filter: Set<String> = emptySet()) {
+        export(className, obj::class, filter)
 
         val code = "let $objectName = new ${className}(); $objectName"
         evaluate(code)
     }
 
-    fun export(className: String, clazz: KClass<*>, include: Set<String>? = null) {
-        global.register(className, JSClass(context, clazz, include))
+    fun export(className: String, clazz: KClass<*>, filter: Set<String> = emptySet()) {
+        global.register(className, JSClass(context, clazz, filter))
     }
 
 

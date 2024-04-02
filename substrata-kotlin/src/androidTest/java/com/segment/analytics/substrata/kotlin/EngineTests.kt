@@ -239,6 +239,21 @@ class EngineTests {
     }
 
     @Test
+    fun testExposeStaticClass() {
+        scope.sync(exceptionHandler) {engine ->
+            engine.export( "StaticBucket", StaticBucket::class)
+
+            val test0 = engine.evaluate("StaticBucket.isEmpty()")
+            assertEquals(true, test0)
+            val test1 = engine.evaluate("StaticBucket.fill(); StaticBucket.isEmpty();")
+            assertEquals(false, test1)
+            val test2 = engine.evaluate("StaticBucket.empty = true; StaticBucket.empty;")
+            assertEquals(true, test2)
+        }
+        assertNull(exception)
+    }
+
+    @Test
     fun testExtendClass() {
         class MyJSClass {
             fun test(p: Int): Int {
@@ -323,4 +338,17 @@ class EngineTests {
         assertNull(exception)
     }
 
+    class StaticBucket {
+        companion object {
+            var empty: Boolean = true
+
+            fun fill() {
+                empty = false
+            }
+
+            fun isEmpty(): Boolean {
+                return empty
+            }
+        }
+    }
 }

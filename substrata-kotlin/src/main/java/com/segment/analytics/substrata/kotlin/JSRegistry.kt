@@ -31,8 +31,13 @@ class JSRegistry (val context: JSContext) {
     fun jsCallback(functionId: Int, args: LongArray): Long {
         functions[functionId]?.let { f ->
             val params = args.map { return@map context.get<Any>(it) }
-            f(params)?.let {
-                if (it !is Unit) return it.toJSValue(context).ref
+            try {
+                f(params)?.let {
+                    if (it !is Unit) return it.toJSValue(context).ref
+                }
+            }
+            catch (e: Exception) {
+                return context.JSUndefined.ref
             }
         }
 
@@ -40,12 +45,11 @@ class JSRegistry (val context: JSContext) {
     }
 
     /**
-     * Register static methods, static fields, instance methods
-     * on the prototype object
+     * Register static methods and static properties on constructor
      * */
-    fun register(jsProtoRef: Long, classId: Int) {
+    fun registerConstructor(jsCtorRef: Long, classId: Int) {
         classes[classId]?.let { clazz ->
-            val jsProto: JSObject = context.get(jsProtoRef)
+            val jsProto: JSObject = context.get(jsCtorRef)
             for ((function, body) in clazz.getMethods(clazz.createPrototype())) {
                 jsProto.register(function, body)
             }
@@ -61,9 +65,21 @@ class JSRegistry (val context: JSContext) {
     }
 
     /**
-     * Create an instance object and register instance methods on it
+     * Register instance methods on prototype object
      * */
-    fun register(jsObjRef: Long, classId: Int, args: LongArray) {
+    fun registerPrototype(jsProtoRef: Long, classId: Int) {
+        classes[classId]?.let { clazz ->
+            val jsProto: JSObject = context.get(jsProtoRef)
+            for ((function, body) in clazz.getMethods(clazz.createPrototype())) {
+                jsProto.register(function, body)
+            }
+        }
+    }
+
+    /**
+     * Create an instance object and register instance properties on it
+     * */
+    fun registerInstance(jsObjRef: Long, classId: Int, args: LongArray) {
         classes[classId]?.let { clazz ->
             val jsObj: JSObject = context.get(jsObjRef)
             for ((property, getterSetter) in clazz.getProperties(clazz.createInstance(args))) {
