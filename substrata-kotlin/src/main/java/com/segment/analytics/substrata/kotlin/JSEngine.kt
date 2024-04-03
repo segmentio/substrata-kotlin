@@ -130,11 +130,11 @@ class JSEngine internal constructor(
     ============================================================================== */
     private fun setupConsole() {
         val v8Console = context.newObject()
-        v8Console.register("log") {instance, it->
+        v8Console.register("log") {
             val msg = it[0].toString()
             println("[JSConsole.I] - $msg")
         }
-        v8Console.register("err") {instance, it->
+        v8Console.register("err") {
             val msg = it.toString()
             println("[JSConsole.E] - $msg")
         }

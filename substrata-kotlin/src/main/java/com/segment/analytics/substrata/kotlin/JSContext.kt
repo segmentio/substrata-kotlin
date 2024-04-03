@@ -289,14 +289,18 @@ class JSContext(
         return call(func.ref, obj.ref, refs)
     }
 
-    fun registerFunction(valueRef: Long, functionName: String, body: JSFunctionBody): JSFunction {
+    fun registerFunction(valueRef: Long, functionName: String, body: JSFunctionBody) = registerFunction(valueRef, functionName, body as Function<Any?>)
+
+    fun registerFunction(jsValue: JSConvertible, functionName: String, body: JSFunctionBody) = registerFunction(jsValue.ref, functionName, body as Function<Any?>)
+
+    fun registerFunction(jsValue: JSConvertible, functionName: String, body: Function<Any?>) = registerFunction(jsValue.ref, functionName, body)
+
+    internal fun registerFunction(valueRef: Long, functionName: String, body: Function<Any?>): JSFunction {
         val functionId = registry.nextFunctionId
         registry.functions[functionId] = body
         val ret = QuickJS.newFunction(this, contextRef, valueRef, functionName, functionId)
         return get(ret)
     }
-
-    fun registerFunction(jsValue: JSConvertible, functionName: String, body: JSFunctionBody) = registerFunction(jsValue.ref, functionName, body)
 
     fun registerClass(valueRef: Long, clazzName: String, clazz: JSClass): JSClass {
         val clazzId = registry.nextClassId
@@ -312,13 +316,15 @@ class JSContext(
 
     fun registerProperty(valueRef: Long, propertyName: String, property: JSProperty) {
         val getterId = registry.nextFunctionId
-        registry.functions[getterId] = { instance, params ->
+        val getter: JSInstanceFunctionBody = { instance, params ->
             property.getter(instance)
         }
+        registry.functions[getterId] = getter
         val setterId = registry.nextFunctionId
-        registry.functions[setterId] = { instance, params ->
+        val setter: JSInstanceFunctionBody = { instance, params ->
             property.setter(instance, params[0])
         }
+        registry.functions[setterId] = setter
         QuickJS.newProperty(this, contextRef, valueRef, propertyName, getterId, setterId)
     }
 

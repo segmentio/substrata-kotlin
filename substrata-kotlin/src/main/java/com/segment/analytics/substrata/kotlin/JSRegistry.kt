@@ -2,6 +2,7 @@ package com.segment.analytics.substrata.kotlin
 
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicInteger
+import kotlin.jvm.functions.FunctionN
 
 class JSRegistry (val context: JSContext) {
     private var _nextFunctionId = AtomicInteger(0)
@@ -21,7 +22,7 @@ class JSRegistry (val context: JSContext) {
             return _nextPropertyId.getAndIncrement()
         }
 
-    var functions = ConcurrentHashMap<Int, JSFunctionBody>()
+    var functions = ConcurrentHashMap<Int, Function<Any?>>()
         private set
     var classes = ConcurrentHashMap<Int, JSClass>()
         private set
@@ -32,8 +33,17 @@ class JSRegistry (val context: JSContext) {
         functions[functionId]?.let { f ->
             val params = args.map { return@map context.get<Any>(it) }
             try {
-                f(instance, params)?.let {
-                    if (it !is Unit) return it.toJSValue(context).ref
+                if (f is Function1<*, *>) {
+                    val f1 = f as Function1<List<Any?>, Any?>
+                    f1(params).let {
+                        if (it !is Unit) return it.toJSValue(context).ref
+                    }
+                }
+                else if (f is Function2<*, *, *>) {
+                    val f2 = f as Function2<Any?, List<Any?>, Any?>
+                    f2(instance, params)?.let {
+                        if (it !is Unit) return it.toJSValue(context).ref
+                    }
                 }
             }
             catch (e: Exception) {

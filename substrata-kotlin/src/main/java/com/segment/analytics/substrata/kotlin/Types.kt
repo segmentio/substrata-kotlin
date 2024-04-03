@@ -208,7 +208,11 @@ class JSObject(
 
     fun register(function: String, body: JSFunctionBody) = register(function, false, body)
 
-    fun register(function: String, overwrite: Boolean, body: JSFunctionBody): JSFunction {
+    fun register(function: String, overwrite: Boolean, body: JSFunctionBody) = register(function, overwrite, body as Function<Any?>)
+
+    internal fun register(function: String, body: Function<Any?>) = register(function, false, body)
+
+    internal fun register(function: String, overwrite: Boolean, body: Function<Any?>): JSFunction {
         if (!overwrite && contains(function)) {
             return getJSFunction(function)
         }
@@ -285,13 +289,13 @@ open class JSClass(
 
     open fun getProperties(obj: Any) = getProperties(clazz, obj)
 
-    private fun getMethods(clazz: KClass<*>?, obj: Any?): Map<String, JSFunctionBody> {
-        val methods = mutableMapOf<String, JSFunctionBody>()
+    private fun getMethods(clazz: KClass<*>?, obj: Any?): Map<String, Function<Any?>> {
+        val methods = mutableMapOf<String, Function<Any?>>()
 
         clazz?.let {
             for (method in it.memberFunctions) {
                 if (filter.contains(method.name)) continue
-                methods[method.name] = { instance, params ->
+                val body: JSInstanceFunctionBody = { instance, params ->
                     val methodParams = method.valueParameters
                     if (methodParams.size != params.size) {
                         throw Exception("Arguments does not match to Java method ${method.name}")
@@ -305,6 +309,7 @@ open class JSClass(
 
                     method.call(instance ?: obj, *params.toTypedArray())
                 }
+                methods[method.name] = body
             }
         }
 
@@ -383,7 +388,8 @@ class JSException private constructor(
 }
 
 
-typealias JSFunctionBody = (instance: Any?, params: List<Any?>) -> Any?
+typealias JSFunctionBody = (params: List<Any?>) -> Any?
+typealias JSInstanceFunctionBody = (instance: Any?, params: List<Any?>) -> Any?
 data class JSProperty(
     val getter: (instance: Any?) -> Any?,
     val setter: (instance: Any?, params: Any?) -> Unit

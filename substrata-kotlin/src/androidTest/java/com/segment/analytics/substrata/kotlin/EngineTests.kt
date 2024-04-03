@@ -341,7 +341,7 @@ class EngineTests {
     @Test
     fun testExportMethod() {
         scope.sync(exceptionHandler) { engine ->
-            engine.export("add") { instance, params ->
+            engine.export("add") { params ->
                 val x = params[0] as Int
                 val y = params[1] as Int
                 return@export (x + y)
@@ -363,7 +363,7 @@ class EngineTests {
     fun testExtendMethod() {
         scope.sync(exceptionHandler) { engine ->
             // extend non-exist variable
-            engine.extend("calculator", "add") { instance, params ->
+            engine.extend("calculator", "add") { params ->
                 val x = params[0] as Int
                 val y = params[1] as Int
                 return@extend (x + y)
@@ -373,7 +373,7 @@ class EngineTests {
             assertEquals(30, ret)
 
             // now calculator exists. extend when variable exists
-            engine.extend("calculator", "minus") { instance, params ->
+            engine.extend("calculator", "minus") { params ->
                 val x = params[0] as Int
                 val y = params[1] as Int
                 return@extend (x - y)
