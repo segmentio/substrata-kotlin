@@ -1,5 +1,7 @@
 package com.segment.analytics.substrata.kotlin
 
+import kotlin.reflect.KClass
+
 class JSContext(
     val contextRef: Long
 ): Releasable {
@@ -296,23 +298,26 @@ class JSContext(
 
     fun registerFunction(jsValue: JSConvertible, functionName: String, body: JSFunctionBody) = registerFunction(jsValue.ref, functionName, body)
 
-    fun registerClass(valueRef: Long, clazzName: String, clazz: JSClass) {
+    fun registerClass(valueRef: Long, clazzName: String, clazz: JSClass): JSClass {
         val clazzId = registry.nextClassId
         registry.classes[clazzId] = clazz
         QuickJS.newClass(this, contextRef, valueRef, clazzName, clazzId)
+
+        return clazz
     }
 
     fun registerClass(jsValue: JSConvertible, clazzName: String, clazz: JSClass) = registerClass(jsValue.ref, clazzName, clazz)
 
+    fun findClass(clazz: KClass<*>) = registry.classes.values.find { it.clazz == clazz }
 
     fun registerProperty(valueRef: Long, propertyName: String, property: JSProperty) {
         val getterId = registry.nextFunctionId
-        registry.functions[getterId] = {
-            property.getter()
+        registry.functions[getterId] = { instance, params ->
+            property.getter(instance)
         }
         val setterId = registry.nextFunctionId
-        registry.functions[setterId] = {
-            property.setter(it[0])
+        registry.functions[setterId] = { instance, params ->
+            property.setter(instance, params[0])
         }
         QuickJS.newProperty(this, contextRef, valueRef, propertyName, getterId, setterId)
     }

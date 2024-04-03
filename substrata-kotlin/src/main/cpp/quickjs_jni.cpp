@@ -625,7 +625,7 @@ static JSValue invoke(JSContext *ctx, JSValueConst this_val, int argc, JSValueCo
     }
 
     jclass clazz = env->FindClass( "com/segment/analytics/substrata/kotlin/JSRegistry" );
-    jmethodID  method = env->GetMethodID(clazz, "jsCallback","(I[J)J");
+    jmethodID  method = env->GetMethodID(clazz, "jsCallback", "(Ljava/lang/Object;I[J)J");
     jclass contextClazz = env->FindClass( "com/segment/analytics/substrata/kotlin/JSContext" );
 
     jlongArray params = env->NewLongArray(argc);
@@ -640,9 +640,23 @@ static JSValue invoke(JSContext *ctx, JSValueConst this_val, int argc, JSValueCo
     jfieldID  field = env->GetFieldID(contextClazz, "registry",
                                       "Lcom/segment/analytics/substrata/kotlin/JSRegistry;");
     jobject registry = env->GetObjectField(data->js_context, field);
-    jlong ret = env->CallLongMethod(registry, method, (jint)magic, params);
+
+    JSAtom atom = JS_NewAtom(ctx, "__instanceClassId");
+    jlong ret;
+    if (JS_HasProperty(ctx, this_val, atom)) {
+        JSValue instanceClassId = JS_GetProperty(ctx, this_val, atom);
+        int classId = 0;
+        JS_ToInt32(ctx, &classId, instanceClassId);
+        JavaInstanceData *instanceData = (JavaInstanceData*)JS_GetOpaque(this_val, classId);
+        ret = env->CallLongMethod(registry, method, instanceData->instance, (jint) magic, params);
+    }
+    else {
+        jobject nullObject = NULL;
+        ret = env->CallLongMethod(registry, method, nullObject, (jint) magic, params);
+    }
     JSValue *retVal = (JSValue *) ret;
 
+    JS_FreeAtom(ctx, atom);
     env->DeleteLocalRef(params);
     if (attached) {
         data->vm->DetachCurrentThread();
@@ -755,7 +769,7 @@ static JSValue construct(JSContext *ctx, JSValueConst this_val, int argc, JSValu
     COPY_JS_VALUE(ctx, result, resultPtr);
 
     jclass clazz = env->FindClass( "com/segment/analytics/substrata/kotlin/JSRegistry" );
-    jmethodID  method = env->GetMethodID(clazz, "registerInstance","(JI[J)V");
+    jmethodID  method = env->GetMethodID(clazz, "registerInstance", "(JI[J)Ljava/lang/Object;");
     jclass contextClazz = env->FindClass( "com/segment/analytics/substrata/kotlin/JSContext" );
 
     jlongArray params = env->NewLongArray(argc);
@@ -770,7 +784,13 @@ static JSValue construct(JSContext *ctx, JSValueConst this_val, int argc, JSValu
     jfieldID  field = env->GetFieldID(contextClazz, "registry",
                                       "Lcom/segment/analytics/substrata/kotlin/JSRegistry;");
     jobject registry = env->GetObjectField(data->js_context, field);
-    env->CallVoidMethod(registry, method, (jlong)resultPtr, (jint)data->class_id, params);
+    jobject instance = env->CallObjectMethod(registry, method, (jlong)resultPtr, (jint)data->class_id, params);
+
+    JSRuntime *rt = JS_GetRuntime(ctx);
+    JavaInstanceData* instanceData = (JavaInstanceData*) js_malloc_rt(rt, sizeof(JavaInstanceData));
+    instanceData->instance = env->NewGlobalRef(instance);;
+    JS_SetPropertyStr(ctx, result, "__instanceClassId", JS_NewInt32(ctx, magic));
+    JS_SetOpaque(result, instanceData);
 
     if (attached) {
         data->vm->DetachCurrentThread();

@@ -200,8 +200,6 @@ class EngineTests {
         val bucket1 = Bucket()
         scope.sync(exceptionHandler) {engine ->
             engine.export( "Bucket", Bucket::class)
-
-            engine.evaluate("let bucket = new Bucket(); bucket")
             engine.export( bucket1, "Bucket", "bucketMain")
             engine.evaluate("""var bucketTmp = new Bucket();""")
 
@@ -210,6 +208,60 @@ class EngineTests {
             val test1 = engine.evaluate("bucketMain.fill(); bucketMain.isEmpty();")
             assertEquals(false, test1)
             val test2 = engine.evaluate("bucketTmp.fill(); bucketTmp.isEmpty();")
+            assertEquals(false, test2)
+        }
+        assertNull(exception)
+    }
+
+    @Test
+    fun testObject() {
+        class Bucket {
+            var empty: Boolean = true
+
+            fun fill() {
+                empty = false
+            }
+
+            fun isEmpty(): Boolean {
+                return empty
+            }
+        }
+        val bucket1 = Bucket()
+        scope.sync(exceptionHandler) {engine ->
+            engine.export( "Bucket", Bucket::class)
+            engine.export( bucket1, "Bucket", "bucketMain")
+
+            bucket1.empty = false
+            val test3 = engine.evaluate("bucketMain.empty")
+            assertEquals(false, test3)
+            val test4 = engine.evaluate("bucketMain.isEmpty()")
+            assertEquals(false, test4)
+        }
+        assertNull(exception)
+    }
+
+    @Test
+    fun testConstructor() {
+        class Bucket() {
+            var empty: Boolean = false
+
+            constructor(empty: Boolean) : this() {
+                this.empty = empty
+            }
+        }
+        val bucket1 = Bucket(true)
+        scope.sync(exceptionHandler) {engine ->
+            engine.export( "Bucket", Bucket::class)
+
+            engine.evaluate("let bucket = new Bucket(true); bucket")
+            engine.export( bucket1, "Bucket", "bucketMain")
+            engine.evaluate("""var bucketTmp = new Bucket(true);""")
+
+            val test0 = engine.evaluate("bucketMain.empty && bucketTmp.empty")
+            assertEquals(true, test0)
+            val test1 = engine.evaluate("bucketMain.empty = false; bucketMain.empty;")
+            assertEquals(false, test1)
+            val test2 = engine.evaluate("bucketTmp.empty = false; bucketTmp.empty;")
             assertEquals(false, test2)
         }
         assertNull(exception)
@@ -278,8 +330,10 @@ class EngineTests {
         }
         """)
 
-            val test0 = engine.evaluate("let b = new OtherClass(); b.test(1)")
-            assertEquals(2, test0)
+            val test0 = engine.evaluate("let a = new MyJSClass(); a.test(1)")
+            assertEquals(1, test0)
+            val test1 = engine.evaluate("let b = new OtherClass(); b.test(1)")
+            assertEquals(2, test1)
         }
         assertNull(exception)
     }
@@ -287,7 +341,7 @@ class EngineTests {
     @Test
     fun testExportMethod() {
         scope.sync(exceptionHandler) { engine ->
-            engine.export("add") { params ->
+            engine.export("add") { instance, params ->
                 val x = params[0] as Int
                 val y = params[1] as Int
                 return@export (x + y)
@@ -309,7 +363,7 @@ class EngineTests {
     fun testExtendMethod() {
         scope.sync(exceptionHandler) { engine ->
             // extend non-exist variable
-            engine.extend("calculator", "add") { params ->
+            engine.extend("calculator", "add") { instance, params ->
                 val x = params[0] as Int
                 val y = params[1] as Int
                 return@extend (x + y)
@@ -319,7 +373,7 @@ class EngineTests {
             assertEquals(30, ret)
 
             // now calculator exists. extend when variable exists
-            engine.extend("calculator", "minus") { params ->
+            engine.extend("calculator", "minus") { instance, params ->
                 val x = params[0] as Int
                 val y = params[1] as Int
                 return@extend (x - y)

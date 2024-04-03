@@ -206,8 +206,10 @@ class JSObject(
 
     override fun contains(key: String) = context.hasProperty(this, key)
 
-    fun register(function: String, body: JSFunctionBody): JSFunction {
-        if (contains(function)) {
+    fun register(function: String, body: JSFunctionBody) = register(function, false, body)
+
+    fun register(function: String, overwrite: Boolean, body: JSFunctionBody): JSFunction {
+        if (!overwrite && contains(function)) {
             return getJSFunction(function)
         }
 
@@ -220,10 +222,14 @@ class JSObject(
         return context.registerProperty(this, propertyName, property)
     }
 
-    fun register(clazzName: String, clazz: JSClass) {
-        if (contains(clazzName)) return
+    fun register(clazzName: String, clazz: JSClass): JSClass {
+        if (contains(clazzName)){
+            context.findClass(clazz.clazz)?.let {
+                return it
+            }
+        }
 
-        context.registerClass(this, clazzName, clazz)
+        return context.registerClass(this, clazzName, clazz)
     }
 }
 
@@ -241,6 +247,8 @@ open class JSClass(
     val clazz: KClass<*>,
     val filter: Set<String> = emptySet()
 ) {
+
+    var instance: Any? = null
 
     open fun createPrototype(): Any {
         try {
@@ -283,7 +291,7 @@ open class JSClass(
         clazz?.let {
             for (method in it.memberFunctions) {
                 if (filter.contains(method.name)) continue
-                methods[method.name] = { params ->
+                methods[method.name] = { instance, params ->
                     val methodParams = method.valueParameters
                     if (methodParams.size != params.size) {
                         throw Exception("Arguments does not match to Java method ${method.name}")
@@ -295,7 +303,7 @@ open class JSClass(
                         }
                     }
 
-                    method.call(obj, *params.toTypedArray())
+                    method.call(instance ?: obj, *params.toTypedArray())
                 }
             }
         }
@@ -310,12 +318,12 @@ open class JSClass(
             for (property in it.memberProperties) {
                 if (filter.contains(property.name)) continue
                 properties[property.name] = JSProperty(
-                    getter = {
-                        return@JSProperty property.getter.call(obj)
+                    getter = { instance ->
+                        return@JSProperty property.getter.call(instance ?: obj)
                     },
-                    setter = { param ->
+                    setter = { instance, param ->
                         if (property is KMutableProperty<*>) {
-                            property.setter.call(obj, param)
+                            property.setter.call(instance ?: obj, param)
                         } else throw Exception("Property ${property.name} does not have a setter")
                     }
                 )
@@ -375,10 +383,10 @@ class JSException private constructor(
 }
 
 
-typealias JSFunctionBody = (List<Any?>) -> Any?
+typealias JSFunctionBody = (instance: Any?, params: List<Any?>) -> Any?
 data class JSProperty(
-    val getter: () -> Any?,
-    val setter: (Any?) -> Unit
+    val getter: (instance: Any?) -> Any?,
+    val setter: (instance: Any?, params: Any?) -> Unit
 )
 
 interface KeyValueObject {

@@ -61,22 +61,23 @@ class JSEngine internal constructor(
 
 
     fun export(obj : Any, className: String, objectName: String, filter: Set<String> = emptySet()) {
-        export(className, obj::class, filter)
+        val jsClass = export(className, obj::class, filter)
 
+        jsClass.instance = obj
         val code = "let $objectName = new ${className}(); $objectName"
         evaluate(code)
+        jsClass.instance = null
     }
 
-    fun export(className: String, clazz: KClass<*>, filter: Set<String> = emptySet()) {
+    fun export(className: String, clazz: KClass<*>, filter: Set<String> = emptySet()) =
         global.register(className, JSClass(context, clazz, filter))
-    }
 
 
-    fun export(function: String, body: JSFunctionBody) = extend(global, function, body)
+    fun export(function: String, overwrite: Boolean = false, body: JSFunctionBody) = extend(global, function, overwrite, body)
 
-    fun extend(obj: JSObject, function: String, body: JSFunctionBody) = obj.register(function, body)
+    fun extend(obj: JSObject, function: String, overwrite: Boolean = false, body: JSFunctionBody) = obj.register(function, overwrite, body)
 
-    fun extend(objectName: String, functionName: String, body: JSFunctionBody) {
+    fun extend(objectName: String, functionName: String, overwrite: Boolean = false, body: JSFunctionBody) {
         /*
           If already exists
           -> if an object, extend it
@@ -99,7 +100,7 @@ class JSEngine internal constructor(
                     )
             }
         }
-        extend(jsObj, functionName, body)
+        extend(jsObj, functionName, overwrite, body)
     }
 
     fun call(function: String, vararg params: Any) = call(global, function, *params)
@@ -129,11 +130,11 @@ class JSEngine internal constructor(
     ============================================================================== */
     private fun setupConsole() {
         val v8Console = context.newObject()
-        v8Console.register("log") {
+        v8Console.register("log") {instance, it->
             val msg = it[0].toString()
             println("[JSConsole.I] - $msg")
         }
-        v8Console.register("err") {
+        v8Console.register("err") {instance, it->
             val msg = it.toString()
             println("[JSConsole.E] - $msg")
         }

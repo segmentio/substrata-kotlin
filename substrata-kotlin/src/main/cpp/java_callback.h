@@ -21,6 +21,10 @@ static JSClassID java_callback_class_id;
 int java_callback_init(JSContext *ctx);
 
 typedef struct {
+    jobject instance;
+} JavaInstanceData;
+
+typedef struct {
     JavaVM *vm;
     jobject js_context;
     int class_id;
