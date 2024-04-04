@@ -11,13 +11,9 @@ class EngineTests {
 
     private var exception : Exception? = null
 
-    private val exceptionHandler = object : JSExceptionHandler {
-        override fun onError(e: Exception) {
-            exception = e
-        }
+    private val scope = JSScope {
+        exception = it
     }
-
-    private val scope = JSScope(exceptionHandler = exceptionHandler)
 
     @After
     fun tearDown() {

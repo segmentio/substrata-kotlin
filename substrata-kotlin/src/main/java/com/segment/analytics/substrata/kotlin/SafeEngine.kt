@@ -26,7 +26,7 @@ class JSScope(
                 engine.closure()
             }
         } catch (ex: Exception) {
-            exceptionHandler?.onError(ex)
+            exceptionHandler?.invoke(ex)
         }
     }
 
@@ -36,7 +36,7 @@ class JSScope(
                 engine.closure()
             }.get(timeoutInSeconds, TimeUnit.SECONDS)
         } catch (ex: Exception) {
-            exceptionHandler?.onError(ex)
+            exceptionHandler?.invoke(ex)
         }
     }
 
@@ -44,7 +44,7 @@ class JSScope(
         return try {
             executor.submit(Callable { engine.closure() }).get(timeoutInSeconds, TimeUnit.SECONDS)
         } catch (ex: Exception) {
-            exceptionHandler?.onError(ex)
+            exceptionHandler?.invoke(ex)
             null
         }
     }
@@ -57,6 +57,4 @@ class JSScope(
     }
 }
 
-interface JSExceptionHandler {
-    fun onError(e: Exception)
-}
+typealias JSExceptionHandler = (Exception) -> Unit
