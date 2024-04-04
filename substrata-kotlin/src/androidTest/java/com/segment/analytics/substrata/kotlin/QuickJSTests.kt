@@ -181,4 +181,33 @@ class QuickJSTests {
         assertTrue(hasProperty(global, "test"))
         assertEquals("123", getProperty(global, "test"))
     }
+
+    @Test
+    fun testGetterSetter() = context.memScope {
+        val script = """
+            class Calculator {
+                add(x, y) {
+                    return x + y
+                }
+            }
+
+            var calc = new Calculator();
+        """.trimIndent()
+        evaluate(script)
+        val obj = getGlobalObject().getJSObject("calc")
+        var v = 0
+        registerProperty(obj, "test", JSProperty(
+            getter = {
+                v
+            },
+            setter = { instance, param ->
+                v = param as Int
+            }
+        ))
+
+        val test0 = evaluate("calc.test")
+        assertEquals(0, test0)
+        val test1 = evaluate("calc.test = 2; calc.test;")
+        assertEquals(2, test1)
+    }
 }

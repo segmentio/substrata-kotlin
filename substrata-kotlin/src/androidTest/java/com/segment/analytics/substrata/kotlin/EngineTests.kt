@@ -214,6 +214,31 @@ class EngineTests {
     }
 
     @Test
+    fun testClass() {
+        class Bucket {
+            var empty: Boolean = true
+
+            fun fill() {
+                empty = false
+            }
+
+            fun isEmpty(): Boolean {
+                return empty
+            }
+        }
+        scope.sync(exceptionHandler) {engine ->
+            engine.export( "Bucket", Bucket::class)
+            engine.evaluate("""var bucketTmp = new Bucket();""")
+
+            val test0 = engine.evaluate("bucketTmp.isEmpty()")
+            assertEquals(true, test0)
+            val test2 = engine.evaluate("bucketTmp.fill(); bucketTmp.isEmpty();")
+            assertEquals(false, test2)
+        }
+        assertNull(exception)
+    }
+
+    @Test
     fun testObject() {
         class Bucket {
             var empty: Boolean = true

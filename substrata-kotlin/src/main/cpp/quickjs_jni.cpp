@@ -35,16 +35,12 @@
             JS_FreeValue((JS_CONTEXT), (JS_VALUE));                                    \
         }                                                                              \
     } while (0)
-// Free a JSValue and set it to the sentinel value
-void safeFreeValue(JSContext *ctx, JSValue *value) {
-    JS_FreeValue(ctx, *value);
-    *value = FREED_VALUE;
+
+int32_t js_get_refcount(JSValue v) {
+    JSRefCountHeader *p = (JSRefCountHeader *)JS_VALUE_GET_PTR(v);
+    return p->ref_count;
 }
 
-// Check if a JSValue has been freed
-int isValueFreed(JSValue value) {
-    return JS_VALUE_GET_TAG(value) == JS_TAG_UNDEFINED;
-}
 extern "C"
 JNIEXPORT void JNICALL
 Java_com_segment_analytics_substrata_kotlin_QuickJS_00024Companion_freeValue(JNIEnv *env,
@@ -56,9 +52,12 @@ Java_com_segment_analytics_substrata_kotlin_QuickJS_00024Companion_freeValue(JNI
     CHECK_NULL(env, ctx, MSG_NULL_JS_CONTEXT);
     JSValue *val = (JSValue *) value;
     CHECK_NULL(env, val, MSG_NULL_JS_VALUE);
-    if (!isValueFreed(*val)) {
-        safeFreeValue(ctx, val);
-        js_free_rt(JS_GetRuntime(ctx), val);
+    JSRuntime* rt = JS_GetRuntime(ctx);
+    if (JS_IsLiveObject(rt, *val)) {
+        if (js_get_refcount(*val) > 0) {
+            JS_FreeValue(ctx, *val);
+            js_free_rt(rt, val);
+        }
     }
 }
 extern "C"
@@ -641,7 +640,7 @@ static JSValue invoke(JSContext *ctx, JSValueConst this_val, int argc, JSValueCo
                                       "Lcom/segment/analytics/substrata/kotlin/JSRegistry;");
     jobject registry = env->GetObjectField(data->js_context, field);
 
-    JSAtom atom = JS_NewAtom(ctx, "__instanceClassId");
+    JSAtom atom = JS_NewAtom(ctx, "__instanceAtom");
     jlong ret;
     if (JS_HasProperty(ctx, this_val, atom)) {
         JSValue instanceClassId = JS_GetProperty(ctx, this_val, atom);
@@ -789,14 +788,18 @@ static JSValue construct(JSContext *ctx, JSValueConst this_val, int argc, JSValu
     JSRuntime *rt = JS_GetRuntime(ctx);
     JavaInstanceData* instanceData = (JavaInstanceData*) js_malloc_rt(rt, sizeof(JavaInstanceData));
     instanceData->instance = env->NewGlobalRef(instance);;
-    JS_SetPropertyStr(ctx, result, "__instanceClassId", JS_NewInt32(ctx, magic));
+    JS_SetPropertyStr(ctx, JS_DupValue(ctx, result), "__instanceAtom", JS_NewInt32(ctx, magic));
     JS_SetOpaque(result, instanceData);
 
+    env->DeleteLocalRef(params);
     if (attached) {
         data->vm->DetachCurrentThread();
     }
 
-    return *(JSValue*)resultPtr;
+//    DO NOT release JavaConstructData, it is shared for all instance creation of the same class!!
+//    env->DeleteGlobalRef(data->js_context);
+//    js_free_rt(rt, data);
+    return result;
 }
 
 extern "C"
@@ -818,22 +821,19 @@ Java_com_segment_analytics_substrata_kotlin_QuickJS_00024Companion_newClass(JNIE
     // Create class
     JSClassDef class_def = {
             .class_name = class_name,
-            .call = NULL,
-            .exotic = NULL,
-            .gc_mark = NULL,
             .finalizer = NULL,
     };
-    JSClassID class_id;
+    JSClassID class_id = 0;
     JS_NewClassID(&class_id);
     JS_NewClass(rt, class_id, &class_def);
 
     // create data for constructor callback
     JavaConstructData *data = NULL;
     data = (JavaConstructData*) js_malloc_rt(rt, sizeof(JavaConstructData));
-    data->class_id = id;
-    data->js_context = env->NewGlobalRef(context);
-    env->GetJavaVM(&data->vm);
     JSValue callback = JS_NewObjectClass(ctx, class_id);
+    env->GetJavaVM(&data->vm);
+    data->js_context = env->NewGlobalRef(context);
+    data->class_id = id;
     JS_SetOpaque(callback, data);
 
     // create constructor and prototype
@@ -900,5 +900,6 @@ Java_com_segment_analytics_substrata_kotlin_QuickJS_00024Companion_newProperty(J
     env->ReleaseStringUTFChars(name, name_utf);
     JS_FreeValue(ctx, callback);
     JS_FreeAtom(ctx, propAtom);
-    //TODO: free getter setter
+    JS_FreeValue(ctx, getter);
+    JS_FreeValue(ctx, setter);
 }
