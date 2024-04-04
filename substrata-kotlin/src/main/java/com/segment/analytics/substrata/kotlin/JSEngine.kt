@@ -13,7 +13,7 @@ import kotlin.reflect.KClass
  * Expose, Extend, Execute, Call all *can* have potential side-effects and create
  * memory so we should not use _memScope_ to manage memory automatically.
  */
-class JSEngine internal constructor(
+class JSEngine private constructor(
     private val runtime: JSRuntime,
     val context: JSContext = runtime.createJSContext(),
     private val global: JSObject = context.getGlobalObject(),
@@ -26,7 +26,7 @@ class JSEngine internal constructor(
 
     val JSUndefined get() = context.JSUndefined
 
-    constructor(): this(QuickJS.createJSRuntime())
+    internal constructor(): this(QuickJS.createJSRuntime())
 
     init {
         setupConsole()

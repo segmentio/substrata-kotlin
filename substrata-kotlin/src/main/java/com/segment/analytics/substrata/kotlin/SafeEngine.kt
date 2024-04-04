@@ -4,7 +4,10 @@ import java.util.concurrent.Callable
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 
-class JSScope(val timeoutInSeconds: Long = 120L): Releasable {
+class JSScope(
+    val timeoutInSeconds: Long = 120L,
+    val exceptionHandler: JSExceptionHandler? = null
+    ): Releasable {
     @PublishedApi
     internal val executor = Executors.newSingleThreadExecutor()
 
@@ -17,35 +20,29 @@ class JSScope(val timeoutInSeconds: Long = 120L): Releasable {
         }.get()
     }
 
-    inline fun launch(
-        exceptionHandler: JSExceptionHandler? = null,
-        crossinline closure: (JSEngine) -> Unit) = engine.context.memScope {
+    inline fun launch(crossinline closure: JSEngine.() -> Unit) = engine.context.memScope {
         try {
             executor.submit {
-                closure(engine)
+                engine.closure()
             }
         } catch (ex: Exception) {
             exceptionHandler?.onError(ex)
         }
     }
 
-    inline fun sync(
-        exceptionHandler: JSExceptionHandler? = null,
-        crossinline closure: (JSEngine) -> Unit) = engine.context.memScope {
+    inline fun sync(crossinline closure: JSEngine.() -> Unit) = engine.context.memScope {
         try {
             executor.submit {
-                closure(engine)
+                engine.closure()
             }.get(timeoutInSeconds, TimeUnit.SECONDS)
         } catch (ex: Exception) {
             exceptionHandler?.onError(ex)
         }
     }
 
-    inline fun <T> await(
-        exceptionHandler: JSExceptionHandler? = null,
-        crossinline closure: (JSEngine) -> T): T?  = engine.context.memScope {
+    inline fun <T> await(crossinline closure: JSEngine.() -> T): T?  = engine.context.memScope {
         return try {
-            executor.submit(Callable { closure(engine) }).get(timeoutInSeconds, TimeUnit.SECONDS)
+            executor.submit(Callable { engine.closure() }).get(timeoutInSeconds, TimeUnit.SECONDS)
         } catch (ex: Exception) {
             exceptionHandler?.onError(ex)
             null

@@ -9,7 +9,7 @@ import org.junit.runner.RunWith
 @RunWith(AndroidJUnit4::class)
 class EngineTests {
 
-    private val scope = JSScope()
+    private var exception : Exception? = null
 
     private val exceptionHandler = object : JSExceptionHandler {
         override fun onError(e: Exception) {
@@ -17,7 +17,7 @@ class EngineTests {
         }
     }
 
-    private var exception : Exception? = null
+    private val scope = JSScope(exceptionHandler = exceptionHandler)
 
     @After
     fun tearDown() {
@@ -26,10 +26,10 @@ class EngineTests {
 
     @Test
     fun testInit() {
-        scope.sync(exceptionHandler) { engine ->
-            val console = engine["console"]
+        scope.sync { 
+            val console = this["console"]
             assertNotNull(console)
-            val dataBridge = engine["DataBridge"]
+            val dataBridge = this["DataBridge"]
             assertNotNull(dataBridge)
         }
         assertNull(exception)
@@ -41,8 +41,8 @@ class EngineTests {
             console.log("testing log")
             console.err("testing err")
         """.trimIndent()
-        scope.sync(exceptionHandler) {
-            it.evaluate(script)
+        scope.sync {
+            evaluate(script)
             assertFalse(false)
         }
         assertNull(exception)
@@ -50,39 +50,39 @@ class EngineTests {
 
     @Test
     fun testDataBridge() {
-        scope.sync(exceptionHandler) { engine ->
-            engine.bridge["string"] = "123"
-            engine.bridge["int"] = 123
-            engine.bridge["bool"] = false
+        scope.sync { 
+            bridge["string"] = "123"
+            bridge["int"] = 123
+            bridge["bool"] = false
 
-            val bridge = engine.getJSObject("DataBridge")
+            val bridge = getJSObject("DataBridge")
             assertEquals("123", bridge["string"])
             assertEquals(123, bridge["int"])
             assertEquals(false, bridge["bool"])
 
-            assertEquals("123", engine.bridge.getString("string"))
-            assertEquals(123, engine.bridge.getInt("int"))
-            assertEquals(false, engine.bridge.getBoolean("bool"))
+            assertEquals("123", bridge.getString("string"))
+            assertEquals(123, bridge.getInt("int"))
+            assertEquals(false, bridge.getBoolean("bool"))
         }
         assertNull(exception)
     }
 
     @Test
     fun testDataBridgeCrossScopes() {
-        scope.sync(exceptionHandler) { engine ->
-            engine.bridge["string"] = "123"
-            engine.bridge["int"] = 123
-            engine.bridge["bool"] = false
+        scope.sync {
+            bridge["string"] = "123"
+            bridge["int"] = 123
+            bridge["bool"] = false
         }
-        scope.sync(exceptionHandler) { engine ->
-            val bridge = engine.getJSObject("DataBridge")
+        scope.sync {
+            val bridge = getJSObject("DataBridge")
             assertEquals("123", bridge["string"])
             assertEquals(123, bridge["int"])
             assertEquals(false, bridge["bool"])
 
-            assertEquals("123", engine.bridge.getString("string"))
-            assertEquals(123, engine.bridge.getInt("int"))
-            assertEquals(false, engine.bridge.getBoolean("bool"))
+            assertEquals("123", bridge.getString("string"))
+            assertEquals(123, bridge.getInt("int"))
+            assertEquals(false, bridge.getBoolean("bool"))
         }
         assertNull(exception)
     }
@@ -93,9 +93,9 @@ class EngineTests {
             var foo = "Ready to setup";
             DataBridge["foo"] = foo;
         """.trimIndent()
-        scope.sync(exceptionHandler) {
-            it.loadBundle(script.byteInputStream())
-            assertEquals("Ready to setup", it.bridge.getString("foo"))
+        scope.sync {
+            loadBundle(script.byteInputStream())
+            assertEquals("Ready to setup", bridge.getString("foo"))
         }
         assertNull(exception)
     }
@@ -106,11 +106,11 @@ class EngineTests {
             var foo = "Ready to setup";
             DataBridge["foo"] = foo;
         """.trimIndent()
-        scope.sync(exceptionHandler) { engine ->
-            engine.loadBundle(script.byteInputStream())
-            assertEquals("Ready to setup", engine["DataBridge.foo"])
-            assertEquals("Ready to setup", engine["foo"])
-            assertEquals(engine.JSUndefined, engine["bar"])
+        scope.sync {
+            loadBundle(script.byteInputStream())
+            assertEquals("Ready to setup", this["DataBridge.foo"])
+            assertEquals("Ready to setup", this["foo"])
+            assertEquals(JSUndefined, get("bar"))
         }
         assertNull(exception)
     }
@@ -121,11 +121,11 @@ class EngineTests {
             var foo = "Ready to setup";
             DataBridge["foo"] = foo;
         """.trimIndent()
-        scope.sync(exceptionHandler) {
-            it.loadBundle(script.byteInputStream())
-            it["foo"] = "Modified"
-            assertEquals("Ready to setup", it["DataBridge.foo"])
-            assertEquals("Modified", it["foo"])
+        scope.sync {
+            loadBundle(script.byteInputStream())
+            this["foo"] = "Modified"
+            assertEquals("Ready to setup", this["DataBridge.foo"])
+            assertEquals("Modified", this["foo"])
         }
         assertNull(exception)
     }
@@ -137,9 +137,9 @@ class EngineTests {
                 return x+y;
             }
         """.trimIndent()
-        scope.sync(exceptionHandler) { engine ->
-            engine.loadBundle(script.byteInputStream())
-            val retVal = engine.call("add", 10, 20) as Int
+        scope.sync {
+            loadBundle(script.byteInputStream())
+            val retVal = call("add", 10, 20) as Int
             assertEquals(30, retVal)
         }
         assertNull(exception)
@@ -156,10 +156,10 @@ class EngineTests {
 
             var calc = new Calculator();
         """.trimIndent()
-        scope.sync(exceptionHandler) { engine ->
-            engine.loadBundle(script.byteInputStream())
-            val calc = engine.getJSObject("calc")
-            val retVal = engine.call(calc, "add", 10, 20)
+        scope.sync {
+            loadBundle(script.byteInputStream())
+            val calc = getJSObject("calc")
+            val retVal = call(calc, "add", 10, 20)
             assertEquals(30, retVal)
         }
         assertNull(exception)
@@ -176,9 +176,9 @@ class EngineTests {
 
             var calc = new Calculator();
         """.trimIndent()
-        scope.sync(exceptionHandler) { engine ->
-            engine.loadBundle(script.byteInputStream())
-            val retVal = engine.call("calc", "add", 10, 20)
+        scope.sync {
+            loadBundle(script.byteInputStream())
+            val retVal = call("calc", "add", 10, 20)
             assertEquals(30, retVal)
         }
         assertNull(exception)
@@ -198,16 +198,16 @@ class EngineTests {
             }
         }
         val bucket1 = Bucket()
-        scope.sync(exceptionHandler) {engine ->
-            engine.export( "Bucket", Bucket::class)
-            engine.export( bucket1, "Bucket", "bucketMain")
-            engine.evaluate("""var bucketTmp = new Bucket();""")
+        scope.sync {
+            export( "Bucket", Bucket::class)
+            export( bucket1, "Bucket", "bucketMain")
+            evaluate("""var bucketTmp = new Bucket();""")
 
-            val test0 = engine.evaluate("bucketMain.isEmpty() && bucketTmp.isEmpty()")
+            val test0 = evaluate("bucketMain.isEmpty() && bucketTmp.isEmpty()")
             assertEquals(true, test0)
-            val test1 = engine.evaluate("bucketMain.fill(); bucketMain.isEmpty();")
+            val test1 = evaluate("bucketMain.fill(); bucketMain.isEmpty();")
             assertEquals(false, test1)
-            val test2 = engine.evaluate("bucketTmp.fill(); bucketTmp.isEmpty();")
+            val test2 = evaluate("bucketTmp.fill(); bucketTmp.isEmpty();")
             assertEquals(false, test2)
         }
         assertNull(exception)
@@ -226,13 +226,13 @@ class EngineTests {
                 return empty
             }
         }
-        scope.sync(exceptionHandler) {engine ->
-            engine.export( "Bucket", Bucket::class)
-            engine.evaluate("""var bucketTmp = new Bucket();""")
+        scope.sync {
+            export( "Bucket", Bucket::class)
+            evaluate("""var bucketTmp = new Bucket();""")
 
-            val test0 = engine.evaluate("bucketTmp.isEmpty()")
+            val test0 = evaluate("bucketTmp.isEmpty()")
             assertEquals(true, test0)
-            val test2 = engine.evaluate("bucketTmp.fill(); bucketTmp.isEmpty();")
+            val test2 = evaluate("bucketTmp.fill(); bucketTmp.isEmpty();")
             assertEquals(false, test2)
         }
         assertNull(exception)
@@ -252,14 +252,14 @@ class EngineTests {
             }
         }
         val bucket1 = Bucket()
-        scope.sync(exceptionHandler) {engine ->
-            engine.export( "Bucket", Bucket::class)
-            engine.export( bucket1, "Bucket", "bucketMain")
+        scope.sync {
+            export( "Bucket", Bucket::class)
+            export( bucket1, "Bucket", "bucketMain")
 
             bucket1.empty = false
-            val test3 = engine.evaluate("bucketMain.empty")
+            val test3 = evaluate("bucketMain.empty")
             assertEquals(false, test3)
-            val test4 = engine.evaluate("bucketMain.isEmpty()")
+            val test4 = evaluate("bucketMain.isEmpty()")
             assertEquals(false, test4)
         }
         assertNull(exception)
@@ -275,18 +275,18 @@ class EngineTests {
             }
         }
         val bucket1 = Bucket(true)
-        scope.sync(exceptionHandler) {engine ->
-            engine.export( "Bucket", Bucket::class)
+        scope.sync {
+            export( "Bucket", Bucket::class)
 
-            engine.evaluate("let bucket = new Bucket(true); bucket")
-            engine.export( bucket1, "Bucket", "bucketMain")
-            engine.evaluate("""var bucketTmp = new Bucket(true);""")
+            evaluate("let bucket = new Bucket(true); bucket")
+            export( bucket1, "Bucket", "bucketMain")
+            evaluate("""var bucketTmp = new Bucket(true);""")
 
-            val test0 = engine.evaluate("bucketMain.empty && bucketTmp.empty")
+            val test0 = evaluate("bucketMain.empty && bucketTmp.empty")
             assertEquals(true, test0)
-            val test1 = engine.evaluate("bucketMain.empty = false; bucketMain.empty;")
+            val test1 = evaluate("bucketMain.empty = false; bucketMain.empty;")
             assertEquals(false, test1)
-            val test2 = engine.evaluate("bucketTmp.empty = false; bucketTmp.empty;")
+            val test2 = evaluate("bucketTmp.empty = false; bucketTmp.empty;")
             assertEquals(false, test2)
         }
         assertNull(exception)
@@ -298,18 +298,18 @@ class EngineTests {
             var empty: Boolean = true
         }
         val bucket1 = Bucket()
-        scope.sync(exceptionHandler) {engine ->
-            engine.export( "Bucket", Bucket::class)
+        scope.sync {
+            export( "Bucket", Bucket::class)
 
-            engine.evaluate("let bucket = new Bucket(); bucket")
-            engine.export( bucket1, "Bucket", "bucketMain")
-            engine.evaluate("""var bucketTmp = new Bucket();""")
+            evaluate("let bucket = new Bucket(); bucket")
+            export( bucket1, "Bucket", "bucketMain")
+            evaluate("""var bucketTmp = new Bucket();""")
 
-            val test0 = engine.evaluate("bucketMain.empty && bucketTmp.empty")
+            val test0 = evaluate("bucketMain.empty && bucketTmp.empty")
             assertEquals(true, test0)
-            val test1 = engine.evaluate("bucketMain.empty = false; bucketMain.empty;")
+            val test1 = evaluate("bucketMain.empty = false; bucketMain.empty;")
             assertEquals(false, test1)
-            val test2 = engine.evaluate("bucketTmp.empty = false; bucketTmp.empty;")
+            val test2 = evaluate("bucketTmp.empty = false; bucketTmp.empty;")
             assertEquals(false, test2)
         }
         assertNull(exception)
@@ -317,14 +317,14 @@ class EngineTests {
 
     @Test
     fun testExposeStaticClass() {
-        scope.sync(exceptionHandler) {engine ->
-            engine.export( "StaticBucket", StaticBucket::class)
+        scope.sync {
+            export( "StaticBucket", StaticBucket::class)
 
-            val test0 = engine.evaluate("StaticBucket.isEmpty()")
+            val test0 = evaluate("StaticBucket.isEmpty()")
             assertEquals(true, test0)
-            val test1 = engine.evaluate("StaticBucket.fill(); StaticBucket.isEmpty();")
+            val test1 = evaluate("StaticBucket.fill(); StaticBucket.isEmpty();")
             assertEquals(false, test1)
-            val test2 = engine.evaluate("StaticBucket.empty = true; StaticBucket.empty;")
+            val test2 = evaluate("StaticBucket.empty = true; StaticBucket.empty;")
             assertEquals(true, test2)
         }
         assertNull(exception)
@@ -337,9 +337,9 @@ class EngineTests {
                 return p
             }
         }
-        scope.sync(exceptionHandler) {engine ->
-            engine.export( "MyJSClass", MyJSClass::class)
-            engine.evaluate("""
+        scope.sync {
+            export( "MyJSClass", MyJSClass::class)
+            evaluate("""
         class OtherClass extends MyJSClass {
           constructor() {
             super()
@@ -355,9 +355,9 @@ class EngineTests {
         }
         """)
 
-            val test0 = engine.evaluate("let a = new MyJSClass(); a.test(1)")
+            val test0 = evaluate("let a = new MyJSClass(); a.test(1)")
             assertEquals(1, test0)
-            val test1 = engine.evaluate("let b = new OtherClass(); b.test(1)")
+            val test1 = evaluate("let b = new OtherClass(); b.test(1)")
             assertEquals(2, test1)
         }
         assertNull(exception)
@@ -365,17 +365,17 @@ class EngineTests {
 
     @Test
     fun testExportMethod() {
-        scope.sync(exceptionHandler) { engine ->
-            engine.export("add") { params ->
+        scope.sync {
+            export("add") { params ->
                 val x = params[0] as Int
                 val y = params[1] as Int
                 return@export (x + y)
             }
 
-            var ret = engine.call("add", 10, 20) as Int
+            var ret = call("add", 10, 20) as Int
             assertEquals(30, ret)
 
-            ret = engine.evaluate("""
+            ret = evaluate("""
                 var result = add(10, 20)
                 result
             """.trimIndent()) as Int
@@ -386,35 +386,65 @@ class EngineTests {
 
     @Test
     fun testExtendMethod() {
-        scope.sync(exceptionHandler) { engine ->
+        scope.sync {
             // extend non-exist variable
-            engine.extend("calculator", "add") { params ->
+            extend("calculator", "add") { params ->
                 val x = params[0] as Int
                 val y = params[1] as Int
                 return@extend (x + y)
             }
 
-            var ret = engine.call("calculator", "add", 10, 20) as Int
+            var ret = call("calculator", "add", 10, 20) as Int
             assertEquals(30, ret)
 
             // now calculator exists. extend when variable exists
-            engine.extend("calculator", "minus") { params ->
+            extend("calculator", "minus") { params ->
                 val x = params[0] as Int
                 val y = params[1] as Int
                 return@extend (x - y)
             }
 
-            ret = engine.call("calculator", "minus", 20, 10) as Int
+            ret = call("calculator", "minus", 20, 10) as Int
             assertEquals(10, ret)
 
 
-            ret = engine.evaluate("""
+            ret = evaluate("""
                 var ret = calculator.minus(20, 10)
                 ret
             """.trimIndent()) as Int
             assertEquals(10, ret)
         }
         assertNull(exception)
+    }
+
+    @Test
+    fun testAwait() {
+        val ret = scope.await {
+            export("add") { params ->
+                val x = params[0] as Int
+                val y = params[1] as Int
+                return@export (x + y)
+            }
+
+            call("add", 10, 20) as Int
+        }
+        assertEquals(30, ret)
+        assertNull(exception)
+
+    }
+
+    @Test
+    fun testLaunch() {
+        scope.launch {
+            export("add") { params ->
+                val x = params[0] as Int
+                val y = params[1] as Int
+                return@export (x + y)
+            }
+
+            call("add", 10, 20) as Int
+
+        }
     }
 
     class StaticBucket {
