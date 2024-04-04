@@ -2,6 +2,7 @@ package com.segment.analytics.substrata.kotlin
 
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import junit.framework.Assert.*
+import kotlinx.serialization.json.JsonObject
 import org.junit.After
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -232,6 +233,21 @@ class EngineTests {
             assertEquals(true, test0)
             val test2 = evaluate("bucketTmp.fill(); bucketTmp.isEmpty();")
             assertEquals(false, test2)
+        }
+        assertNull(exception)
+    }
+
+    @Test
+    fun testClassWithComplexProperty() {
+        class JSAnalytics {
+            var traits: JsonObject? = null
+        }
+        scope.sync {
+            export( "Analytics", JSAnalytics::class)
+            evaluate("""var analytics = new Analytics();""")
+
+            val test0 = evaluate("analytics.traits")
+            assertEquals(null, test0)
         }
         assertNull(exception)
     }

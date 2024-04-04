@@ -63,7 +63,7 @@ fun Any?.toJSValue(context: JSContext): JSConvertible = when(this) {
     is Boolean -> this.toJSValue(context)
     is Int -> this.toJSValue(context)
     is Double -> this.toJSValue(context)
-    null -> throw Exception("Null cannot be cast to JSValue.")
+    null -> context.JSNull
     else -> throw Exception("Type ${this.javaClass.name} cannot be cast to JSValue.")
 }
 

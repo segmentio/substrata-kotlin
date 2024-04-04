@@ -41,7 +41,7 @@ class JSRegistry (val context: JSContext) {
                 }
                 else if (f is Function2<*, *, *>) {
                     val f2 = f as Function2<Any?, List<Any?>, Any?>
-                    f2(instance, params)?.let {
+                    f2(instance, params).let {
                         if (it !is Unit) return it.toJSValue(context).ref
                     }
                 }
@@ -79,8 +79,6 @@ class JSRegistry (val context: JSContext) {
             val jsProto: JSObject = context.get(jsProtoRef)
             for ((function, body) in clazz.getMethods(clazz.createPrototype())) {
                 jsProto.register(function, body)
-                // TODO: call quickjs, register typedInstanceMethod with functionId and functionName
-                // use `this` instance from JS_NewCFunctionMagic
             }
         }
     }

@@ -100,7 +100,7 @@ class JSContext(
                 }
             }
             QuickJS.TYPE_EXCEPTION -> value.asJSException()
-            QuickJS.TYPE_NULL -> JSNull
+            QuickJS.TYPE_NULL -> null
             QuickJS.TYPE_UNDEFINED -> JSUndefined
 //            QuickJS.TYPE_EXCEPTION -> getExecption()
             else -> throw Exception("Property type is undefined")
