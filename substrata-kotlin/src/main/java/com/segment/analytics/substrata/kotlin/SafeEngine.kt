@@ -17,6 +17,18 @@ class JSScope(val timeoutInSeconds: Long = 120L): Releasable {
         }.get()
     }
 
+    inline fun launch(
+        exceptionHandler: JSExceptionHandler? = null,
+        crossinline closure: (JSEngine) -> Unit) = engine.context.memScope {
+        try {
+            executor.submit {
+                closure(engine)
+            }
+        } catch (ex: Exception) {
+            exceptionHandler?.onError(ex)
+        }
+    }
+
     inline fun sync(
         exceptionHandler: JSExceptionHandler? = null,
         crossinline closure: (JSEngine) -> Unit) = engine.context.memScope {
