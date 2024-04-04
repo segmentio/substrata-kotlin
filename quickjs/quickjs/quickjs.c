@@ -2902,7 +2902,7 @@ static void JS_FreeAtomStruct(JSRuntime *rt, JSAtomStruct *p)
             rt->atom_hash[h0] = p1->hash_next;
         } else {
             for(;;) {
-                if (i == 0) return;
+                assert(i != 0);
                 p0 = p1;
                 i = p1->hash_next;
                 p1 = rt->atom_array[i];
