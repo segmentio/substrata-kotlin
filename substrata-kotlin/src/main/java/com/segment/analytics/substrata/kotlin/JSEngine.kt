@@ -37,9 +37,24 @@ class JSEngine private constructor(
         runtime.release()
     }
 
-    fun loadBundle(bundleStream: InputStream) {
-        val script: String = BufferedReader(bundleStream.reader()).readText()
-        context.evaluate(script)
+    fun loadBundle(bundleStream: InputStream, completion: ((Exception?) -> Unit)? = null) {
+        var error: Exception? = null
+
+        try {
+            val script: String = BufferedReader(bundleStream.reader()).readText()
+            val ret = context.evaluate(script)
+            if (ret is JSException) {
+                throw Exception("""
+                    ${ret.getException()}
+                    ${ret.stack}
+                """.trimIndent())
+            }
+        }
+        catch (e: Exception) {
+            error = e
+        }
+
+        completion?.invoke(error)
     }
 
     override operator fun get(key: String): Any? {

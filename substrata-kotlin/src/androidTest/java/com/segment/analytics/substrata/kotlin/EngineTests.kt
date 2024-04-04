@@ -90,7 +90,9 @@ class EngineTests {
             DataBridge["foo"] = foo;
         """.trimIndent()
         scope.sync {
-            loadBundle(script.byteInputStream())
+            loadBundle(script.byteInputStream()) {
+                exception = it
+            }
             assertEquals("Ready to setup", bridge.getString("foo"))
         }
         assertNull(exception)
