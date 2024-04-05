@@ -895,7 +895,7 @@ Java_com_segment_analytics_substrata_kotlin_QuickJS_00024Companion_newProperty(J
     JSValue getter = JS_NewCFunctionData(ctx, invoke, 1, getter_id, 2, &callback);
     JSValue setter = JS_NewCFunctionData(ctx, invoke, 1, setter_id, 2, &callback);
 
-    JS_DefinePropertyGetSet(ctx, *val, propAtom, JS_DupValue(ctx, getter), JS_DupValue(ctx, setter), JS_PROP_HAS_WRITABLE | JS_PROP_HAS_ENUMERABLE | JS_PROP_HAS_GET);
+    JS_DefinePropertyGetSet(ctx, *val, propAtom, JS_DupValue(ctx, getter), JS_DupValue(ctx, setter), JS_PROP_HAS_WRITABLE | JS_PROP_HAS_ENUMERABLE | JS_PROP_HAS_GET | JS_PROP_HAS_SET);
 
     env->ReleaseStringUTFChars(name, name_utf);
     JS_FreeValue(ctx, callback);

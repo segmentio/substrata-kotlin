@@ -3,21 +3,13 @@ package com.segment.analytics.substrata.kotlin
 import com.segment.analytics.substrata.kotlin.JsonElementConverter.toJsonElement
 import com.segment.analytics.substrata.kotlin.JsonElementConverter.wrap
 import kotlinx.serialization.json.JsonElement
-import java.lang.reflect.Field
-import java.lang.reflect.Method
-import java.lang.reflect.Modifier
 import kotlin.reflect.KClass
-import kotlin.reflect.KFunction
 import kotlin.reflect.KMutableProperty
-import kotlin.reflect.KProperty
-import kotlin.reflect.KProperty1
 import kotlin.reflect.full.companionObject
 import kotlin.reflect.full.companionObjectInstance
 import kotlin.reflect.full.createInstance
 import kotlin.reflect.full.memberFunctions
 import kotlin.reflect.full.memberProperties
-import kotlin.reflect.full.staticFunctions
-import kotlin.reflect.full.staticProperties
 import kotlin.reflect.full.valueParameters
 
 interface Releasable {
@@ -105,9 +97,9 @@ class JSArray(jsValue: JSValue): JSConvertible by jsValue {
         setProperty(this@JSArray, size++, value.wrap(this))
     }
 
-    fun <T: JSConvertible> add(value: T, converter: JSConverter<T>) = with(context) {
-        setProperty(this@JSArray, size++, value.toJSValue(this))
-    }
+//    fun <T: JSConvertible> add(value: T, converter: JSConverter<T>) = with(context) {
+//        setProperty(this@JSArray, size++, converter.write(value, this))
+//    }
 
     fun getBoolean(index: Int): Boolean = context.getProperty(this, index)
 
@@ -128,10 +120,10 @@ class JSArray(jsValue: JSValue): JSConvertible by jsValue {
 
     operator fun get(index: Int): Any = context.getProperty(this, index)
 
-    fun <T> getJSConvertible(index: Int, converter: JSConverter<T>) : T {
-        val jsArray =  context.getProperty<JSArray>(this, index)
-        return converter.read(jsArray)
-    }
+//    fun <T> getJSConvertible(index: Int, converter: JSConverter<T>) : T {
+//        val property =  context.getProperty<Any>(this, index)
+//        return converter.read(property)
+//    }
 }
 
 /**

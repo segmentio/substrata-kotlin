@@ -134,7 +134,7 @@ class JSEngine private constructor(
         vararg params: Any
     ): Any {
         val func: JSFunction = context.getProperty(jsObject, function)
-        return func(global, *params)
+        return func(jsObject, *params)
     }
 
     fun evaluate(script: String) = context.evaluate(script)

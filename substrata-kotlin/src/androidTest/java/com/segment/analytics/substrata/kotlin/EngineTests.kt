@@ -307,6 +307,31 @@ class EngineTests {
     }
 
     @Test
+    fun testConstructorWithExportedObject() {
+        class Bucket {
+            var empty: Boolean = false
+
+            constructor() {}
+
+            constructor(b: JSObject) {
+                this.empty = b.getBoolean("empty")
+            }
+        }
+        val bucket1 = Bucket()
+        bucket1.empty = true
+        scope.sync {
+            export( "Bucket", Bucket::class)
+
+            export( bucket1, "Bucket", "bucketMain")
+            evaluate("let bucket = new Bucket(bucketMain); bucket")
+
+            val test0 = evaluate("bucket.empty")
+            assertEquals(true, test0)
+        }
+        assertNull(exception)
+    }
+
+    @Test
     fun testGetterSetter() {
         class Bucket {
             var empty: Boolean = true

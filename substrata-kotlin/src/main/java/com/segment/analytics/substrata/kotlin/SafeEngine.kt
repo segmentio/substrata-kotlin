@@ -6,7 +6,7 @@ import java.util.concurrent.TimeUnit
 
 class JSScope(
     val timeoutInSeconds: Long = 120L,
-    val exceptionHandler: JSExceptionHandler? = null
+    var exceptionHandler: JSExceptionHandler? = null
     ): Releasable {
     @PublishedApi
     internal val executor = Executors.newSingleThreadExecutor()

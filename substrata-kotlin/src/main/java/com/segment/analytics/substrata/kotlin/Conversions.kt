@@ -76,12 +76,17 @@ interface JSConverter<T> {
      *  * boolean
      *  * double
      *  * string
-     *  * v8 value
+     *  * JSConvertibles
      */
     fun read(obj: Any?) : T
 
     /**
-     * convert content to a V8 compatible object
+     * convert content to a JS compatible object. the object could be:
+     *  * int
+     *  * boolean
+     *  * double
+     *  * string
+     *  * JSConvertibles
      */
     fun write(content: T, context: JSContext) : Any
 }
