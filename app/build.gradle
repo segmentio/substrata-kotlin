@@ -4,12 +4,12 @@ plugins {
 }
 
 android {
-    compileSdk 31
+    compileSdk 34
 
     defaultConfig {
         applicationId "com.segment.analytics.substrata.kotlin.sample"
         minSdk 21
-        targetSdk 31
+        targetSdk 34
         versionCode 1
         versionName "1.0"
 
@@ -29,12 +29,12 @@ android {
     kotlinOptions {
         jvmTarget = '1.8'
     }
+    namespace 'com.segment.analytics.substrata.kotlin.sample'
 }
 
 dependencies {
 //    api 'com.segment.analytics.kotlin:substrata-kotlin:0.0.2'
     api project(':substrata-kotlin')
-    implementation 'com.eclipsesource.j2v8:j2v8:6.2.0@aar'
     implementation 'androidx.core:core-ktx:1.7.0'
     implementation 'androidx.appcompat:appcompat:1.4.1'
     implementation 'com.google.android.material:material:1.5.0'
