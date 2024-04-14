@@ -1,17 +1,17 @@
-//package com.segment.analytics.substrata.kotlin.sample
-//
-//import android.os.Bundle
-//import android.util.Log
-//import androidx.appcompat.app.AppCompatActivity
-//import com.segment.analytics.substrata.kotlin.JSValue
-//import com.segment.analytics.substrata.kotlin.j2v8.J2V8Engine
-//
-//class MainActivity : AppCompatActivity() {
-//
-//    override fun onCreate(savedInstanceState: Bundle?) {
-//        Log.d("PRAY", "Starting")
-//        super.onCreate(savedInstanceState)
-//        setContentView(R.layout.activity_main)
+package com.segment.analytics.substrata.kotlin.sample
+
+import android.os.Bundle
+import android.util.Log
+import androidx.appcompat.app.AppCompatActivity
+import com.segment.analytics.substrata.kotlin.JSValue
+import com.segment.analytics.substrata.kotlin.j2v8.J2V8Engine
+
+class MainActivity : AppCompatActivity() {
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        Log.d("PRAY", "Starting")
+        super.onCreate(savedInstanceState)
+        setContentView(R.layout.activity_main)
 //        val engine = J2V8Engine()
 //        Log.d("PRAY", "Created engine")
 //        engine["foo"] = JSValue.JSString("")
@@ -88,16 +88,5 @@
 ////            ex.printStackTrace()
 ////            Log.d("PRAY", ex.toString())
 ////        }
-//
-//    }
-//
-//    fun J2V8Engine.exec(script: String) {
-//        Log.d("PRAY-errorHandler", "Execing $script")
-//        try {
-//            execute(script)
-//        } catch (ex: Exception) {
-//            ex.printStackTrace()
-//        }
-//        Log.d("PRAY-errorHandler", "DONE Execing $script")
-//    }
-//}
+    }
+}
