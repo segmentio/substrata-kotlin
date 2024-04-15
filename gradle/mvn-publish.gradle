@@ -11,7 +11,7 @@ publishing {
             artifactId POM_ARTIFACT_ID
             version getVersionName()
 
-            artifact("$projectDir/build/outputs/aar/${project.getName()}-release.aar")
+            artifact("$buildDir/outputs/aar/${project.getName()}-release.aar")
             artifact sourcesJar
 
             // Self-explanatory metadata for the most part
