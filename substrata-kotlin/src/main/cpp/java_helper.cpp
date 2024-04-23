@@ -1,20 +1,29 @@
 #include <stdio.h>
+#include <string>
+#include <iostream>
 
 #include "java_helper.h"
 
-#define MAX_MSG_SIZE 1024
 
-jint throw_exception(JNIEnv *env, const char *exception_name, const char *message, ...) {
-    char formatted_message[MAX_MSG_SIZE];
-    va_list va_args;
-    va_start(va_args, message);
-    vsnprintf(formatted_message, MAX_MSG_SIZE, message, va_args);
-    va_end(va_args);
+void swallow_cpp_exception_and_throw_java(JNIEnv * env) {
+    try {
+        throw;
+    } catch(const ThrownJavaException&) {
+        //already reported to Java, ignore
+    } catch(const std::bad_alloc& rhs) {
+        //translate OOM C++ exception to a Java exception
+        NewJavaException(env, "java/lang/OutOfMemoryError", rhs.what());
+    } catch(const std::ios_base::failure& rhs) { //sample translation
+        //translate IO C++ exception to a Java exception
+        NewJavaException(env, "java/io/IOException", rhs.what());
 
-    jclass exception_class = env->FindClass(exception_name);
-    if (exception_class == NULL) {
-        return -1;
+        //TRANSLATE ANY OTHER C++ EXCEPTIONS TO JAVA EXCEPTIONS HERE
+
+    } catch(const std::exception& e) {
+        //translate unknown C++ exception to a Java exception
+        NewJavaException(env, "java/lang/Error", e.what());
+    } catch(...) {
+        //translate unknown C++ exception to a Java exception
+        NewJavaException(env, "java/lang/Error", "Unknown exception type");
     }
-
-    return env->ThrowNew(exception_class, formatted_message);
 }

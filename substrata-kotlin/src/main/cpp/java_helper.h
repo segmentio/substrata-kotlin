@@ -1,48 +1,43 @@
 //
-// Created by Wenxi Zeng on 3/1/24.
+// See the original post here: https://stackoverflow.com/a/12014833/8296631
 //
 
 #ifndef SUBSTRATA_KOTLIN_JAVA_HELPER_H
 #define SUBSTRATA_KOTLIN_JAVA_HELPER_H
 
 #include <jni.h>
+#include <string>
+#include <stdexcept>
 
+#define MSG_OOM "Out of memory"
 #define CLASS_NAME_ILLEGAL_STATE_EXCEPTION "java/lang/IllegalStateException"
 
-#define THROW_EXCEPTION(ENV, EXCEPTION_NAME, ...)                               \
-    do {                                                                        \
-        throw_exception((ENV), (EXCEPTION_NAME), __VA_ARGS__);                  \
-        return;                                                                 \
-    } while (0)
-#define THROW_EXCEPTION_RET(ENV, EXCEPTION_NAME, ...)                           \
-    do {                                                                        \
-        throw_exception((ENV), (EXCEPTION_NAME), __VA_ARGS__);                  \
-        return 0;                                                               \
-    } while (0)
-#define MSG_OOM "Out of memory"
-#define MSG_NULL_JS_RUNTIME "Null JSRuntime"
-#define MSG_NULL_JS_CONTEXT "Null JSContext"
-#define MSG_NULL_JS_VALUE "Null JSValue"
-#define THROW_ILLEGAL_STATE_EXCEPTION(ENV, ...)                                 \
-    THROW_EXCEPTION(ENV, CLASS_NAME_ILLEGAL_STATE_EXCEPTION, __VA_ARGS__)
-#define THROW_ILLEGAL_STATE_EXCEPTION_RET(ENV, ...)                             \
-    THROW_EXCEPTION_RET(ENV, CLASS_NAME_ILLEGAL_STATE_EXCEPTION, __VA_ARGS__)
-#define CHECK_NULL(ENV, POINTER, MESSAGE)                                       \
-    do {                                                                        \
-        if ((POINTER) == NULL) {                                                \
-            THROW_ILLEGAL_STATE_EXCEPTION((ENV), (MESSAGE));                    \
-        }                                                                       \
-    } while (0)
-#define CHECK_NULL_RET(ENV, POINTER, MESSAGE)                                   \
-    do {                                                                        \
-        if ((POINTER) == NULL) {                                                \
-            THROW_ILLEGAL_STATE_EXCEPTION_RET((ENV), (MESSAGE));                \
-        }                                                                       \
-    } while (0)
+//This is how we represent a Java exception already in progress
+struct ThrownJavaException : std::runtime_error {
+    ThrownJavaException() :std::runtime_error("") {}
+    ThrownJavaException(const std::string& msg ) :std::runtime_error(msg) {}
+};
 
-#define MAX_MSG_SIZE 1024
+//used to throw a new Java exception. use full paths like:
+//"java/lang/NoSuchFieldException"
+//"java/lang/NullPointerException"
+//"java/security/InvalidParameterException"
+struct NewJavaException : public ThrownJavaException{
+    NewJavaException(JNIEnv * env, const char* type, const char* message="")
+            :ThrownJavaException(type+std::string(" ")+message)
+    {
+        jclass newExcCls = env->FindClass(type);
+        if (newExcCls != NULL)
+            env->ThrowNew(newExcCls, message);
+        //if it is null, a NoClassDefFoundError was already thrown
+    }
+};
 
-jint throw_exception(JNIEnv *env, const char *exception_name, const char *message, ...);
+inline void assert_no_exception(JNIEnv * env) {
+    if (env->ExceptionCheck()==JNI_TRUE)
+        throw ThrownJavaException("assert_no_exception");
+}
 
+void swallow_cpp_exception_and_throw_java(JNIEnv * env);
 
 #endif //SUBSTRATA_KOTLIN_JAVA_HELPER_H
