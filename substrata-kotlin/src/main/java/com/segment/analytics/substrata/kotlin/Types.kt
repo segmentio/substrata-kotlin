@@ -194,7 +194,7 @@ class JSObject(
 
     override fun getJSConvertible(key: String): JSConvertible = context.getProperty(this, key)
 
-    override fun get(key: String): Any = context.getProperty(this, key)
+    override fun get(key: String): Any? = context.getProperty(this, key)
 
     override fun contains(key: String) = context.hasProperty(this, key)
 
