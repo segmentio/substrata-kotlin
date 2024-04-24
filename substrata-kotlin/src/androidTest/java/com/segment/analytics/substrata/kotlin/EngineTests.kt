@@ -457,6 +457,23 @@ class EngineTests {
     }
 
     @Test
+    fun testException() {
+        class MyJSClass {
+            fun test(): Int {
+                throw Exception("something wrong")
+            }
+        }
+        scope.sync {
+            export( "MyJSClass", MyJSClass::class)
+            evaluate("""
+                let o = MyJSClass()
+                o.test()
+            """)
+        }
+        assertNotNull(exception)
+    }
+
+    @Test
     fun testAwait() {
         val ret = scope.await {
             export("add") { params ->

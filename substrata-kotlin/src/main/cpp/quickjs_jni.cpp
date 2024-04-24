@@ -86,6 +86,7 @@ Java_com_segment_analytics_substrata_kotlin_QuickJS_00024Companion_isBool(JNIEnv
     }
     catch (...) {
         swallow_cpp_exception_and_throw_java(env);
+        return false;
     }
 }
 extern "C"
@@ -99,6 +100,7 @@ Java_com_segment_analytics_substrata_kotlin_QuickJS_00024Companion_getBool(JNIEn
     }
     catch (...) {
         swallow_cpp_exception_and_throw_java(env);
+        return false;
     }
 }
 extern "C"
@@ -118,6 +120,7 @@ Java_com_segment_analytics_substrata_kotlin_QuickJS_00024Companion_newBool(JNIEn
     }
     catch (...) {
         swallow_cpp_exception_and_throw_java(env);
+        return 0;
     }
 }
 extern "C"
@@ -131,6 +134,7 @@ Java_com_segment_analytics_substrata_kotlin_QuickJS_00024Companion_isNumber(JNIE
     }
     catch (...) {
         swallow_cpp_exception_and_throw_java(env);
+        return false;
     }
 }
 extern "C"
@@ -143,6 +147,7 @@ Java_com_segment_analytics_substrata_kotlin_QuickJS_00024Companion_getInt(JNIEnv
     }
     catch (...) {
         swallow_cpp_exception_and_throw_java(env);
+        return 0;
     }
 }
 extern "C"
@@ -160,6 +165,7 @@ Java_com_segment_analytics_substrata_kotlin_QuickJS_00024Companion_newInt(JNIEnv
     }
     catch (...) {
         swallow_cpp_exception_and_throw_java(env);
+        return 0;
     }
 }
 extern "C"
@@ -177,6 +183,7 @@ Java_com_segment_analytics_substrata_kotlin_QuickJS_00024Companion_getFloat64(JN
     }
     catch (...) {
         swallow_cpp_exception_and_throw_java(env);
+        return 0;
     }
 }
 extern "C"
@@ -196,6 +203,7 @@ Java_com_segment_analytics_substrata_kotlin_QuickJS_00024Companion_newFloat64(JN
     }
     catch (...) {
         swallow_cpp_exception_and_throw_java(env);
+        return 0;
     }
 }
 extern "C"
@@ -209,6 +217,7 @@ Java_com_segment_analytics_substrata_kotlin_QuickJS_00024Companion_isString(JNIE
     }
     catch (...) {
         swallow_cpp_exception_and_throw_java(env);
+        return false;
     }
 }
 extern "C"
@@ -230,6 +239,7 @@ Java_com_segment_analytics_substrata_kotlin_QuickJS_00024Companion_getString(JNI
     }
     catch (...) {
         swallow_cpp_exception_and_throw_java(env);
+        return (jstring) "";
     }
 }
 extern "C"
@@ -255,6 +265,7 @@ Java_com_segment_analytics_substrata_kotlin_QuickJS_00024Companion_newString(JNI
     }
     catch (...) {
         swallow_cpp_exception_and_throw_java(env);
+        return 0;
     }
 }
 extern "C"
@@ -271,6 +282,7 @@ Java_com_segment_analytics_substrata_kotlin_QuickJS_00024Companion_isArray(JNIEn
     }
     catch (...) {
         swallow_cpp_exception_and_throw_java(env);
+        return false;
     }
 }
 extern "C"
@@ -290,6 +302,7 @@ Java_com_segment_analytics_substrata_kotlin_QuickJS_00024Companion_newArray(JNIE
     }
     catch (...) {
         swallow_cpp_exception_and_throw_java(env);
+        return 0;
     }
 }
 extern "C"
@@ -312,6 +325,7 @@ Java_com_segment_analytics_substrata_kotlin_QuickJS_00024Companion_getProperty__
     }
     catch (...) {
         swallow_cpp_exception_and_throw_java(env);
+        return 0;
     }
 }
 extern "C"
@@ -380,6 +394,7 @@ Java_com_segment_analytics_substrata_kotlin_QuickJS_00024Companion_getProperty__
     }
     catch (...) {
         swallow_cpp_exception_and_throw_java(env);
+        return 0;
     }
 }
 extern "C"
@@ -393,6 +408,7 @@ Java_com_segment_analytics_substrata_kotlin_QuickJS_00024Companion_isObject(JNIE
     }
     catch (...) {
         swallow_cpp_exception_and_throw_java(env);
+        return false;
     }
 }
 extern "C"
@@ -412,6 +428,7 @@ Java_com_segment_analytics_substrata_kotlin_QuickJS_00024Companion_newObject(JNI
     }
     catch (...) {
         swallow_cpp_exception_and_throw_java(env);
+        return 0;
     }
 }
 extern "C"
@@ -431,6 +448,7 @@ Java_com_segment_analytics_substrata_kotlin_QuickJS_00024Companion_getNull(JNIEn
     }
     catch (...) {
         swallow_cpp_exception_and_throw_java(env);
+        return 0;
     }
 }
 extern "C"
@@ -450,6 +468,7 @@ Java_com_segment_analytics_substrata_kotlin_QuickJS_00024Companion_getUndefined(
     }
     catch (...) {
         swallow_cpp_exception_and_throw_java(env);
+        return 0;
     }
 }
 extern "C"
@@ -463,6 +482,7 @@ Java_com_segment_analytics_substrata_kotlin_QuickJS_00024Companion_getType(JNIEn
     }
     catch (...) {
         swallow_cpp_exception_and_throw_java(env);
+        return 0;
     }
 
 }
@@ -497,6 +517,7 @@ Java_com_segment_analytics_substrata_kotlin_QuickJS_00024Companion_getOwnPropert
     }
     catch (...) {
         swallow_cpp_exception_and_throw_java(env);
+        return nullptr;
     }
 }
 extern "C"
@@ -529,6 +550,7 @@ Java_com_segment_analytics_substrata_kotlin_QuickJS_00024Companion_call(JNIEnv *
     }
     catch (...) {
         swallow_cpp_exception_and_throw_java(env);
+        return 0;
     }
 }
 extern "C"
@@ -541,6 +563,7 @@ Java_com_segment_analytics_substrata_kotlin_QuickJS_00024Companion_newRuntime(JN
     }
     catch (...) {
         swallow_cpp_exception_and_throw_java(env);
+        return 0;
     }
 }
 extern "C"
@@ -558,6 +581,7 @@ Java_com_segment_analytics_substrata_kotlin_QuickJS_00024Companion_newContext(JN
     }
     catch (...) {
         swallow_cpp_exception_and_throw_java(env);
+        return 0;
     }
 }
 extern "C"
@@ -576,6 +600,7 @@ Java_com_segment_analytics_substrata_kotlin_QuickJS_00024Companion_getGlobalObje
     }
     catch (...) {
         swallow_cpp_exception_and_throw_java(env);
+        return 0;
     }
 }
 extern "C"
@@ -616,6 +641,7 @@ Java_com_segment_analytics_substrata_kotlin_QuickJS_00024Companion_evaluate(JNIE
     }
     catch (...) {
         swallow_cpp_exception_and_throw_java(env);
+        return 0;
     }
 }
 extern "C"
@@ -644,6 +670,7 @@ Java_com_segment_analytics_substrata_kotlin_QuickJS_00024Companion_isFunction(JN
     }
     catch (...) {
         swallow_cpp_exception_and_throw_java(env);
+        return false;
     }
 }
 extern "C"
@@ -672,6 +699,7 @@ Java_com_segment_analytics_substrata_kotlin_QuickJS_00024Companion_hasProperty(J
     }
     catch (...) {
         swallow_cpp_exception_and_throw_java(env);
+        return false;
     }
 }
 
@@ -740,6 +768,7 @@ static JSValue invoke(JSContext *ctx, JSValueConst this_val, int argc, JSValueCo
     }
     catch (...) {
         swallow_cpp_exception_and_throw_java(env);
+        return JS_UNDEFINED;
     }
 }
 extern "C"
@@ -783,6 +812,7 @@ Java_com_segment_analytics_substrata_kotlin_QuickJS_00024Companion_newFunction(J
     }
     catch (...) {
         swallow_cpp_exception_and_throw_java(env);
+        return 0;
     }
 }
 extern "C"
@@ -832,6 +862,7 @@ Java_com_segment_analytics_substrata_kotlin_QuickJS_00024Companion_getException(
     }
     catch (...) {
         swallow_cpp_exception_and_throw_java(env);
+        return nullptr;
     }
 }
 
@@ -893,6 +924,7 @@ static JSValue construct(JSContext *ctx, JSValueConst this_val, int argc, JSValu
     }
     catch (...) {
         swallow_cpp_exception_and_throw_java(env);
+        return JS_UNDEFINED;
     }
 }
 

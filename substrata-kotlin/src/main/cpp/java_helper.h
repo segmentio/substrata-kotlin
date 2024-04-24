@@ -12,10 +12,17 @@
 #define MSG_OOM "Out of memory"
 #define CLASS_NAME_ILLEGAL_STATE_EXCEPTION "java/lang/IllegalStateException"
 
-//This is how we represent a Java exception already in progress
-struct ThrownJavaException : std::runtime_error {
-    ThrownJavaException() :std::runtime_error("") {}
-    ThrownJavaException(const std::string& msg ) :std::runtime_error(msg) {}
+struct ThrownJavaException : std::exception {
+    ThrownJavaException(const std::string& message) : m_message(message) {}
+    ThrownJavaException() : m_message("") {}
+
+    // Override the what() method to provide a description of the exception
+    const char* what() const noexcept override {
+        return m_message.c_str();
+    }
+
+private:
+    std::string m_message;
 };
 
 //used to throw a new Java exception. use full paths like:
