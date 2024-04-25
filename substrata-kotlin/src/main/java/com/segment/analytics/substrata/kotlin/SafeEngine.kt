@@ -20,10 +20,17 @@ class JSScope(
         }.get()
     }
 
-    inline fun launch(crossinline closure: JSEngine.() -> Unit) = engine.context.memScope {
+    inline fun launch(global: Boolean = false, crossinline closure: JSEngine.() -> Unit) {
         try {
             executor.submit {
-                engine.closure()
+                if (global) {
+                    engine.closure()
+                }
+                else {
+                    engine.context.memScope {
+                        engine.closure()
+                    }
+                }
             }
         } catch (ex: Exception) {
             exceptionHandler?.invoke(ex)

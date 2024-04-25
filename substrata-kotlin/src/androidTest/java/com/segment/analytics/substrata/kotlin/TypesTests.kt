@@ -1,6 +1,7 @@
 package com.segment.analytics.substrata.kotlin
 
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.add
 import kotlinx.serialization.json.boolean
 import kotlinx.serialization.json.buildJsonArray
@@ -189,5 +190,20 @@ class TypesTests {
         assertEquals(true, nestedArr[1].jsonPrimitive.boolean)
         assertEquals("testtesttest", nestedArr[2].jsonPrimitive.content)
         assertEquals(3.3, nestedArr[3].jsonPrimitive.double, 0.01)
+    }
+
+    @Test
+    fun testJsonElementConverter() {
+        val json = """
+            {"properties":{"version":1,"build":1,"from_background":false},"event":"Application Opened","type":"track","messageId":"2132f014-a8fe-41b6-b714-0226db39e0d3","anonymousId":"a7bffc58-991e-4a2d-98a7-2a04abb3ea93","integrations":{},"context":{"library":{"name":"analytics-kotlin","version":"1.15.0"},"instanceId":"49f19161-6d56-4024-b23d-7f32d6ab9982","app":{"name":"analytics-kotlin-live","version":1,"namespace":"com.segment.analytics.liveplugins.app","build":1},"device":{"id":"87bc73d4e4ca1608da083975d36421aef0411dff765c9766b9bfaf266b7c1586","manufacturer":"Google","model":"sdk_gphone64_arm64","name":"emu64a","type":"android"},"os":{"name":"Android","version":14},"screen":{"density":2.75,"height":2154,"width":1080},"network":{},"locale":"en-US","userAgent":"Dalvik/2.1.0 (Linux; U; Android 14; sdk_gphone64_arm64 Build/UE1A.230829.036.A1)","timezone":"America/Chicago","livePluginMessage":"This came from a LivePlugin"},"userId":"","_metadata":{"bundled":[],"unbundled":[],"bundledIds":[]},"timestamp":"2024-04-25T16:40:55.994Z"}
+        """.trimIndent()
+        val content = Json.parseToJsonElement(json)
+
+        context.memScope {
+            val jsObject = JsonElementConverter.write(content, this)
+            assert(jsObject is JSObject)
+            val jsonObject = JsonElementConverter.read(jsObject)
+            assertNotNull(jsonObject)
+        }
     }
 }

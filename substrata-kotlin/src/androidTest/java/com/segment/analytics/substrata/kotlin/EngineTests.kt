@@ -2,7 +2,10 @@ package com.segment.analytics.substrata.kotlin
 
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import junit.framework.Assert.*
+import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import org.junit.After
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -60,6 +63,12 @@ class EngineTests {
             assertEquals("123", bridge.getString("string"))
             assertEquals(123, bridge.getInt("int"))
             assertEquals(false, bridge.getBoolean("bool"))
+
+            val ret = evaluate("""
+                let v = DataBridge["int"]
+                v
+            """.trimIndent())
+            assertEquals(123, ret)
         }
         assertNull(exception)
     }
@@ -454,6 +463,39 @@ class EngineTests {
             assertEquals(10, ret)
         }
         assertNull(exception)
+    }
+
+    @Test
+    fun testCallWithJsonElement() {
+        val message = "This came from a LivePlugin"
+        val script = """
+            class MyTest {
+                track(event) {
+                    event.context.livePluginMessage = "$message";
+                    const mcvid = DataBridge["mcvid"]
+                    if (mcvid) {
+                        event.context.mcvid = mcvid;
+                    }
+                    return event
+                }
+            }
+            let myTest = new MyTest()
+            myTest
+        """.trimIndent()
+        val json = """
+            {"properties":{"version":1,"build":1,"from_background":false},"event":"Application Opened","type":"track","messageId":"2132f014-a8fe-41b6-b714-0226db39e0d3","anonymousId":"a7bffc58-991e-4a2d-98a7-2a04abb3ea93","integrations":{},"context":{"library":{"name":"analytics-kotlin","version":"1.15.0"},"instanceId":"49f19161-6d56-4024-b23d-7f32d6ab9982","app":{"name":"analytics-kotlin-live","version":1,"namespace":"com.segment.analytics.liveplugins.app","build":1},"device":{"id":"87bc73d4e4ca1608da083975d36421aef0411dff765c9766b9bfaf266b7c1586","manufacturer":"Google","model":"sdk_gphone64_arm64","name":"emu64a","type":"android"},"os":{"name":"Android","version":14},"screen":{"density":2.75,"height":2154,"width":1080},"network":{},"locale":"en-US","userAgent":"Dalvik/2.1.0 (Linux; U; Android 14; sdk_gphone64_arm64 Build/UE1A.230829.036.A1)","timezone":"America/Chicago"},"userId":"","_metadata":{"bundled":[],"unbundled":[],"bundledIds":[]},"timestamp":"2024-04-25T16:40:55.994Z"}
+        """.trimIndent()
+        val content = Json.parseToJsonElement(json)
+
+        scope.sync {
+            val ret = evaluate(script)
+            assert(ret is JSObject)
+            val res: Any = call(ret as JSObject, "track", JsonElementConverter.write(content, context))
+            assert(res is JSObject)
+            val jsonObject = JsonElementConverter.read(res)
+            assertNotNull(jsonObject)
+            assertEquals(message, jsonObject.jsonObject["context"]?.jsonObject?.get("livePluginMessage")?.jsonPrimitive?.content)
+        }
     }
 
     @Test
