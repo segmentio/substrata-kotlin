@@ -496,6 +496,29 @@ class EngineTests {
             assertNotNull(jsonObject)
             assertEquals(message, jsonObject.jsonObject["context"]?.jsonObject?.get("livePluginMessage")?.jsonPrimitive?.content)
         }
+        assertNull(exception)
+    }
+
+    @Test
+    fun testOverloads() {
+        class MyTest {
+            fun track() = 0
+
+            fun track(str: String) = str
+
+            fun track(i: Int, str: String) = "$i and $str"
+        }
+
+        scope.sync {
+            export("MyTest", MyTest::class)
+            val ret = evaluate("let myTest = new MyTest(); myTest")
+            assert(ret is JSObject)
+            val jsObject = ret as JSObject
+            assertEquals(0, call(jsObject, "track"))
+            assertEquals("testtest", call(jsObject, "track", "testtest"))
+            assertEquals("0 and testtest", call(jsObject, "track", 0, "testtest"))
+        }
+        assertNull(exception)
     }
 
     @Test

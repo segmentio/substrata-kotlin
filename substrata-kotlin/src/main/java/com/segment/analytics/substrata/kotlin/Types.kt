@@ -212,6 +212,10 @@ class JSObject(
         return context.registerFunction(this, function, body)
     }
 
+    internal fun register(function: String, overloads: MutableList<Function<Any?>>): JSFunction {
+        return context.registerFunction(this, function, overloads)
+    }
+
     fun register(propertyName: String, property: JSProperty) {
         if (contains(propertyName)) return
 
@@ -281,8 +285,8 @@ open class JSClass(
 
     open fun getProperties(obj: Any) = getProperties(clazz, obj)
 
-    private fun getMethods(clazz: KClass<*>?, obj: Any?): Map<String, Function<Any?>> {
-        val methods = mutableMapOf<String, Function<Any?>>()
+    private fun getMethods(clazz: KClass<*>?, obj: Any?): Map<String, MutableList<Function<Any?>>> {
+        val methods = mutableMapOf<String, MutableList<Function<Any?>>>()
 
         clazz?.let {
             for (method in it.memberFunctions) {
@@ -290,18 +294,22 @@ open class JSClass(
                 val body: JSInstanceFunctionBody = { instance, params ->
                     val methodParams = method.valueParameters
                     if (methodParams.size != params.size) {
-                        throw Exception("Arguments does not match to Java method ${method.name}")
+                        throw JSCallbackInvalidParametersException("Arguments does not match to Java method ${method.name}")
                     }
 
                     for (i in methodParams.indices) {
                         if (methodParams[i].type.classifier != params[i]!!::class) {
-                            throw Exception("Wrong argument passed to Java method ${method.name}. Expecting ${methodParams[i]::class.simpleName}, but was ${params[i]!!::class.simpleName}")
+                            throw JSCallbackInvalidParametersException("Wrong argument passed to Java method ${method.name}. Expecting ${methodParams[i]::class.simpleName}, but was ${params[i]!!::class.simpleName}")
                         }
                     }
 
                     method.call(instance ?: obj, *params.toTypedArray())
                 }
-                methods[method.name] = body
+
+                if (methods[method.name] == null) {
+                    methods[method.name] = mutableListOf()
+                }
+                methods[method.name]!!.add(body)
             }
         }
 
@@ -386,6 +394,8 @@ data class JSProperty(
     val getter: (instance: Any?) -> Any?,
     val setter: (instance: Any?, params: Any?) -> Unit
 )
+
+class JSCallbackInvalidParametersException(message: String): Exception(message)
 
 interface KeyValueObject {
     operator fun set(key: String, value: Int)

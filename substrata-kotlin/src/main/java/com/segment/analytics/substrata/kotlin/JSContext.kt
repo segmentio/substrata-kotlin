@@ -297,7 +297,16 @@ class JSContext(
 
     internal fun registerFunction(valueRef: Long, functionName: String, body: Function<Any?>): JSFunction {
         val functionId = registry.nextFunctionId
-        registry.functions[functionId] = body
+        registry.functions[functionId] = mutableListOf(body)
+        val ret = QuickJS.newFunction(this, contextRef, valueRef, functionName, functionId)
+        return get(ret)
+    }
+
+    fun registerFunction(jsValue: JSConvertible, functionName: String,  overloads: MutableList<Function<Any?>>) = registerFunction(jsValue.ref, functionName, overloads)
+
+    fun registerFunction(valueRef: Long, functionName: String,  overloads: MutableList<Function<Any?>>): JSFunction {
+        val functionId = registry.nextFunctionId
+        registry.functions[functionId] = overloads
         val ret = QuickJS.newFunction(this, contextRef, valueRef, functionName, functionId)
         return get(ret)
     }
@@ -319,12 +328,14 @@ class JSContext(
         val getter: JSInstanceFunctionBody = { instance, params ->
             property.getter(instance)
         }
-        registry.functions[getterId] = getter
+        registry.functions[getterId] = mutableListOf(getter)
+
         val setterId = registry.nextFunctionId
         val setter: JSInstanceFunctionBody = { instance, params ->
             property.setter(instance, params[0])
         }
-        registry.functions[setterId] = setter
+        registry.functions[setterId] = mutableListOf(setter)
+
         QuickJS.newProperty(this, contextRef, valueRef, propertyName, getterId, setterId)
     }
 

@@ -21,7 +21,10 @@ class JSRegistry (val context: JSContext) {
             return _nextPropertyId.getAndIncrement()
         }
 
-    var functions = ConcurrentHashMap<Int, Function<Any?>>()
+    /**
+     * bind the overload functions to the same id, so we don't have to handle it in jni
+     * */
+    var functions = ConcurrentHashMap<Int, MutableList<Function<Any?>>>()
         private set
     var classes = ConcurrentHashMap<Int, JSClass>()
         private set
@@ -29,22 +32,32 @@ class JSRegistry (val context: JSContext) {
         private set
 
     fun jsCallback(instance: Any?, functionId: Int, args: LongArray): Long {
-        functions[functionId]?.let { f ->
-            val params = args.map { return@map context.get<Any>(it) }
-            if (f is Function1<*, *>) {
-                val f1 = f as Function1<List<Any?>, Any?>
-                f1(params).let {
-                    if (it !is Unit) return it.toJSValue(context).ref
+        val params = args.map { return@map context.get<Any>(it) }
+        var exception: Exception? = null
+        functions[functionId]?.forEach { f ->
+            try {
+                if (f is Function1<*, *>) {
+                    val f1 = f as Function1<List<Any?>, Any?>
+                    f1(params).let {
+                        if (it !is Unit) return it.toJSValue(context).ref
+                        else return context.JSUndefined.ref
+                    }
+                } else if (f is Function2<*, *, *>) {
+                    val f2 = f as Function2<Any?, List<Any?>, Any?>
+                    f2(instance, params).let {
+                        if (it !is Unit) return it.toJSValue(context).ref
+                        else return context.JSUndefined.ref
+                    }
                 }
             }
-            else if (f is Function2<*, *, *>) {
-                val f2 = f as Function2<Any?, List<Any?>, Any?>
-                f2(instance, params).let {
-                    if (it !is Unit) return it.toJSValue(context).ref
-                }
+            catch (e : JSCallbackInvalidParametersException) {
+                exception = e
             }
         }
 
+        // if a matching function is found and executed with no errors, the value is already returned.
+        // if this line is reached, it means no matching function found
+        exception?.let { throw it }
         return context.JSUndefined.ref
     }
 
@@ -71,8 +84,8 @@ class JSRegistry (val context: JSContext) {
     fun registerPrototype(jsProtoRef: Long, classId: Int) {
         classes[classId]?.let { clazz ->
             val jsProto: JSObject = context.get(jsProtoRef)
-            for ((function, body) in clazz.getMethods(clazz.createPrototype())) {
-                jsProto.register(function, body)
+            for ((function, overloads) in clazz.getMethods(clazz.createPrototype())) {
+                jsProto.register(function, overloads)
             }
         }
     }
