@@ -30,19 +30,35 @@ class JSScope(
         }
     }
 
-    inline fun sync(crossinline closure: JSEngine.() -> Unit) = engine.context.memScope {
+    inline fun sync(global: Boolean = false, crossinline closure: JSEngine.() -> Unit) {
         try {
             executor.submit {
-                engine.closure()
+                if (global) {
+                    engine.closure()
+                }
+                else {
+                    engine.context.memScope {
+                        engine.closure()
+                    }
+                }
             }.get(timeoutInSeconds, TimeUnit.SECONDS)
         } catch (ex: Exception) {
             exceptionHandler?.invoke(ex)
         }
     }
 
-    inline fun <T> await(crossinline closure: JSEngine.() -> T): T?  = engine.context.memScope {
+    inline fun <T> await(global: Boolean = false, crossinline closure: JSEngine.() -> T): T? {
         return try {
-            executor.submit(Callable { engine.closure() }).get(timeoutInSeconds, TimeUnit.SECONDS)
+            executor.submit(Callable {
+                if (global) {
+                    engine.closure()
+                }
+                else {
+                    engine.context.memScope {
+                        engine.closure()
+                    }
+                }
+            }).get(timeoutInSeconds, TimeUnit.SECONDS)
         } catch (ex: Exception) {
             exceptionHandler?.invoke(ex)
             null
