@@ -110,11 +110,11 @@ class JSContext(
         }
     }
 
-    fun getProperties(jsValue: JSConvertible): MutableMap<String, Any> {
+    fun getProperties(jsValue: JSConvertible): MutableMap<String, Any?> {
         val names = QuickJS.getOwnPropertyNames(this.contextRef, jsValue.ref)
-        val result = mutableMapOf<String, Any>()
+        val result = mutableMapOf<String, Any?>()
         for (name in names) {
-            val value: Any = getProperty(jsValue, name)
+            val value: Any? = getProperty(jsValue, name)
             result[name] = value
         }
         return result
