@@ -562,6 +562,27 @@ class EngineTests {
     }
 
     @Test
+    fun testGlobalScopeDoesPersist() {
+        var ret: JSObject? = null
+        scope.sync {
+            ret = scope.await(global = true) {
+                val jsObject = context.newObject()
+                jsObject["a"] = 1
+                jsObject
+            }
+        }
+        assertNotNull(ret)
+        assert(ret is JSObject)
+
+        scope.sync {
+            val a = (ret as JSObject)["a"]
+            assertEquals(1, a)
+        }
+
+        assertNull(exception)
+    }
+
+    @Test
     fun testException() {
         class MyJSClass {
             fun test(): Int {

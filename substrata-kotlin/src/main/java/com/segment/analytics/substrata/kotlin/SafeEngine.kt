@@ -97,15 +97,10 @@ class JSScope(
 
     private fun<T> optimize(global: Boolean = false,  closure: JSEngine.() -> T): Future<T> {
         val callable = Callable {
-            if (global) {
+            val ret = engine.context.memScope(global) {
                 engine.closure()
             }
-            else {
-                val ret = engine.context.memScope {
-                    engine.closure()
-                }
-                ret
-            }
+            ret
         }
 
         // if we are already in the current thread, no need to submit to thread pool task to avoid deadlock

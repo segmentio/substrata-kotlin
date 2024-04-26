@@ -1,5 +1,6 @@
 package com.segment.analytics.substrata.kotlin
 
+import java.util.concurrent.ConcurrentHashMap
 import kotlin.reflect.KClass
 
 class JSContext(
@@ -8,6 +9,8 @@ class JSContext(
     val referenceHandlers = mutableSetOf<ReferenceHandler>()
 
     private val memoryManager = MemoryManager(this)
+
+    internal val globalReferences = ConcurrentHashMap<Long, MutableSet<JSConvertible>>()
 
     val JSNull = getNull()
 
@@ -181,6 +184,8 @@ class JSContext(
     }
 
     override fun release() {
+        // first clear all the reference from the global table, so memory manager can release them
+        globalReferences.clear()
         memoryManager.release()
         QuickJS.freeContext(contextRef)
     }
