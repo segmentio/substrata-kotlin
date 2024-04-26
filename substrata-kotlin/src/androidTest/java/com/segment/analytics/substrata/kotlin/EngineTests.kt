@@ -522,6 +522,46 @@ class EngineTests {
     }
 
     @Test
+    fun testNestedScopes() {
+        scope.sync {
+            val l1 = scope.await {
+                val l2 = scope.await {
+                    scope.sync {
+                        Thread.sleep(500L)
+                    }
+                    1
+                }
+
+                (l2 ?: 0) + 1
+            }
+
+            assertEquals(2, l1)
+        }
+        assertNull(exception)
+    }
+
+    @Test
+    fun testNestedScopesInCallback() {
+        class MyTest {
+            var engine: JSScope? = null
+
+            fun track() {
+                engine?.sync {
+                    println("callback")
+                }
+            }
+        }
+        val myTest = MyTest()
+        myTest.engine = scope
+
+        scope.sync {
+            export(myTest, "MyTest", "myTest")
+            call("myTest", "track")
+        }
+        assertNull(exception)
+    }
+
+    @Test
     fun testException() {
         class MyJSClass {
             fun test(): Int {

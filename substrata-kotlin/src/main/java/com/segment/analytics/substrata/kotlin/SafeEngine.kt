@@ -2,14 +2,23 @@ package com.segment.analytics.substrata.kotlin
 
 import java.util.concurrent.Callable
 import java.util.concurrent.Executors
+import java.util.concurrent.Future
+import java.util.concurrent.FutureTask
 import java.util.concurrent.TimeUnit
 
 class JSScope(
     val timeoutInSeconds: Long = 120L,
     var exceptionHandler: JSExceptionHandler? = null
     ): Releasable {
+
+    companion object {
+        const val SUBSTRATA_THREAD = "SegmentSubstrataThread"
+    }
+
     @PublishedApi
-    internal val executor = Executors.newSingleThreadExecutor()
+    internal val executor = Executors.newSingleThreadExecutor {
+        Thread(it, SUBSTRATA_THREAD)
+    }
 
     @PublishedApi
     internal lateinit var engine : JSEngine
@@ -30,18 +39,9 @@ class JSScope(
      * @param global whether to run the task in the global scope.
      * @param closure content of the task
      */
-    inline fun launch(global: Boolean = false, crossinline closure: JSEngine.() -> Unit) {
+    fun launch(global: Boolean = false, closure: JSEngine.() -> Unit) {
         try {
-            executor.submit {
-                if (global) {
-                    engine.closure()
-                }
-                else {
-                    engine.context.memScope {
-                        engine.closure()
-                    }
-                }
-            }
+            optimize(global, closure)
         } catch (ex: Exception) {
             exceptionHandler?.invoke(ex)
         }
@@ -57,18 +57,9 @@ class JSScope(
      * @param global whether to run the task in the global scope.
      * @param closure content of the task
      */
-    inline fun sync(global: Boolean = false, crossinline closure: JSEngine.() -> Unit) {
+    fun sync(global: Boolean = false, closure: JSEngine.() -> Unit) {
         try {
-            executor.submit {
-                if (global) {
-                    engine.closure()
-                }
-                else {
-                    engine.context.memScope {
-                        engine.closure()
-                    }
-                }
-            }.get(timeoutInSeconds, TimeUnit.SECONDS)
+            optimize(global, closure).get(timeoutInSeconds, TimeUnit.SECONDS)
         } catch (ex: Exception) {
             exceptionHandler?.invoke(ex)
         }
@@ -88,18 +79,9 @@ class JSScope(
      * @param global whether to run the task in the global scope.
      * @param closure content of the task
      */
-    inline fun <T> await(global: Boolean = false, crossinline closure: JSEngine.() -> T): T? {
+    fun <T> await(global: Boolean = false, closure: JSEngine.() -> T): T? {
         return try {
-            executor.submit(Callable {
-                if (global) {
-                    engine.closure()
-                }
-                else {
-                    engine.context.memScope {
-                        engine.closure()
-                    }
-                }
-            }).get(timeoutInSeconds, TimeUnit.SECONDS)
+            optimize(global, closure).get(timeoutInSeconds, TimeUnit.SECONDS)
         } catch (ex: Exception) {
             exceptionHandler?.invoke(ex)
             null
@@ -111,6 +93,30 @@ class JSScope(
             engine.release()
         }.get(timeoutInSeconds, TimeUnit.SECONDS)
         executor.shutdown()
+    }
+
+    private fun<T> optimize(global: Boolean = false,  closure: JSEngine.() -> T): Future<T> {
+        val callable = Callable {
+            if (global) {
+                engine.closure()
+            }
+            else {
+                val ret = engine.context.memScope {
+                    engine.closure()
+                }
+                ret
+            }
+        }
+
+        // if we are already in the current thread, no need to submit to thread pool task to avoid deadlock
+        return if (Thread.currentThread().name == SUBSTRATA_THREAD) {
+            val task = FutureTask(callable)
+            task.run()
+            task
+        }
+        else {
+            executor.submit(callable)
+        }
     }
 }
 
