@@ -2,7 +2,10 @@ package com.segment.analytics.substrata.kotlin
 
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import junit.framework.Assert.*
+import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import org.junit.After
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -60,6 +63,12 @@ class EngineTests {
             assertEquals("123", bridge.getString("string"))
             assertEquals(123, bridge.getInt("int"))
             assertEquals(false, bridge.getBoolean("bool"))
+
+            val ret = evaluate("""
+                let v = DataBridge["int"]
+                v
+            """.trimIndent())
+            assertEquals(123, ret)
         }
         assertNull(exception)
     }
@@ -454,6 +463,140 @@ class EngineTests {
             assertEquals(10, ret)
         }
         assertNull(exception)
+    }
+
+    @Test
+    fun testCallWithJsonElement() {
+        val message = "This came from a LivePlugin"
+        val script = """
+            class MyTest {
+                track(event) {
+                    event.context.livePluginMessage = "$message";
+                    const mcvid = DataBridge["mcvid"]
+                    if (mcvid) {
+                        event.context.mcvid = mcvid;
+                    }
+                    return event
+                }
+            }
+            let myTest = new MyTest()
+            myTest
+        """.trimIndent()
+        val json = """
+            {"properties":{"version":1,"build":1,"from_background":false},"event":"Application Opened","type":"track","messageId":"2132f014-a8fe-41b6-b714-0226db39e0d3","anonymousId":"a7bffc58-991e-4a2d-98a7-2a04abb3ea93","integrations":{},"context":{"library":{"name":"analytics-kotlin","version":"1.15.0"},"instanceId":"49f19161-6d56-4024-b23d-7f32d6ab9982","app":{"name":"analytics-kotlin-live","version":1,"namespace":"com.segment.analytics.liveplugins.app","build":1},"device":{"id":"87bc73d4e4ca1608da083975d36421aef0411dff765c9766b9bfaf266b7c1586","manufacturer":"Google","model":"sdk_gphone64_arm64","name":"emu64a","type":"android"},"os":{"name":"Android","version":14},"screen":{"density":2.75,"height":2154,"width":1080},"network":{},"locale":"en-US","userAgent":"Dalvik/2.1.0 (Linux; U; Android 14; sdk_gphone64_arm64 Build/UE1A.230829.036.A1)","timezone":"America/Chicago"},"userId":"","_metadata":{"bundled":[],"unbundled":[],"bundledIds":[]},"timestamp":"2024-04-25T16:40:55.994Z"}
+        """.trimIndent()
+        val content = Json.parseToJsonElement(json)
+
+        scope.sync {
+            val ret = evaluate(script)
+            assert(ret is JSObject)
+            val res: Any = call(ret as JSObject, "track", JsonElementConverter.write(content, context))
+            assert(res is JSObject)
+            val jsonObject = JsonElementConverter.read(res)
+            assertNotNull(jsonObject)
+            assertEquals(message, jsonObject.jsonObject["context"]?.jsonObject?.get("livePluginMessage")?.jsonPrimitive?.content)
+        }
+        assertNull(exception)
+    }
+
+    @Test
+    fun testOverloads() {
+        class MyTest {
+            fun track() = 0
+
+            fun track(str: String) = str
+
+            fun track(i: Int, str: String) = "$i and $str"
+        }
+
+        scope.sync {
+            export("MyTest", MyTest::class)
+            val ret = evaluate("let myTest = new MyTest(); myTest")
+            assert(ret is JSObject)
+            val jsObject = ret as JSObject
+            assertEquals(0, call(jsObject, "track"))
+            assertEquals("testtest", call(jsObject, "track", "testtest"))
+            assertEquals("0 and testtest", call(jsObject, "track", 0, "testtest"))
+        }
+        assertNull(exception)
+    }
+
+    @Test
+    fun testNestedScopes() {
+        scope.sync {
+            val l1 = scope.await {
+                val l2 = scope.await {
+                    scope.sync {
+                        Thread.sleep(500L)
+                    }
+                    1
+                }
+
+                (l2 ?: 0) + 1
+            }
+
+            assertEquals(2, l1)
+        }
+        assertNull(exception)
+    }
+
+    @Test
+    fun testNestedScopesInCallback() {
+        class MyTest {
+            var engine: JSScope? = null
+
+            fun track() {
+                engine?.sync {
+                    println("callback")
+                }
+            }
+        }
+        val myTest = MyTest()
+        myTest.engine = scope
+
+        scope.sync {
+            export(myTest, "MyTest", "myTest")
+            call("myTest", "track")
+        }
+        assertNull(exception)
+    }
+
+    @Test
+    fun testGlobalScopeDoesPersist() {
+        var ret: JSObject? = null
+        scope.sync {
+            ret = scope.await(global = true) {
+                val jsObject = context.newObject()
+                jsObject["a"] = 1
+                jsObject
+            }
+        }
+        assertNotNull(ret)
+        assert(ret is JSObject)
+
+        scope.sync {
+            val a = (ret as JSObject)["a"]
+            assertEquals(1, a)
+        }
+
+        assertNull(exception)
+    }
+
+    @Test
+    fun testException() {
+        class MyJSClass {
+            fun test(): Int {
+                throw Exception("something wrong")
+            }
+        }
+        scope.sync {
+            export( "MyJSClass", MyJSClass::class)
+            evaluate("""
+                let o = MyJSClass()
+                o.test()
+            """)
+        }
+        assertNotNull(exception)
     }
 
     @Test

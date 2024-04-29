@@ -1,11 +1,16 @@
 package com.segment.analytics.substrata.kotlin
 
-inline fun <T> JSContext.memScope(body: JSContext.() -> T): T {
+inline fun <T> JSContext.memScope(global: Boolean = false, body: JSContext.() -> T): T {
     val scope = MemoryManager(this)
     try {
         return body()
     } finally {
-        scope.release()
+        if (global) {
+            scope.persist()
+        }
+        else {
+            scope.release()
+        }
     }
 }
 
@@ -33,6 +38,8 @@ class MemoryManager(
 
         try {
             for ((ref, list) in references) {
+                if (context.globalReferences.containsKey(ref)) continue
+
                 context.release(ref)
                 for (v in list) {
                     if (v is JSValue) {
@@ -47,6 +54,16 @@ class MemoryManager(
             releasing = false
         }
 
+        released = true
+    }
+
+    fun persist() {
+        if (released) return
+        releasing = true
+
+        context.globalReferences.putAll(references)
+
+        releasing = false
         released = true
     }
 

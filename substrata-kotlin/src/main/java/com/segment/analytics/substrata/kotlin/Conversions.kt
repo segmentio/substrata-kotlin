@@ -70,6 +70,8 @@ fun Any?.toJSValue(context: JSContext): JSConvertible = when(this) {
 
 interface JSConverter<T> {
     /**
+     * NOTE: converter has to be used in a JSSCope
+     *
      * convert an object to target type.
      * the object can be any of the following types:
      *  * int
@@ -81,6 +83,8 @@ interface JSConverter<T> {
     fun read(obj: Any?) : T
 
     /**
+     * NOTE: converter has to be used in a JSSCope
+     *
      * convert content to a JS compatible object. the object could be:
      *  * int
      *  * boolean
