@@ -1,13 +1,38 @@
 # Substrata-Kotlin
 Small, Efficient, Easy.  Javascript Engine for Kotlin.
 
-Using QuickJS has been simplified.  No more worrying on memory management, thread safety and type conversions. This engine handles al of that for you.
+Using QuickJS has been simplified.  No more worrying on memory management, thread safety and type conversions. This engine handles all of that for you.
 
-Substrata Kotlin is currently only available in Beta
+Substrata Kotlin is currently only available in Beta.
+
+- [Substrata-Kotlin](#substrata-kotlin)
+  - [Quick Start](#quick-start)
+  - [Supported Types](#supported-types)
+    - [Primitives (Pass-by-value)](#primitives-pass-by-value)
+    - [JSConvertibles (Pass-by-value)](#jsconvertibles-pass-by-value)
+    - [Kotlin JsonElement](#kotlin-jsonelement)
+  - [JSScope](#jsscope)
+    - [Launch, Sync and Await](#launch-sync-and-await)
+  - [Share values between native and JavaScript](#share-values-between-native-and-javascript)
+    - [DataBridge](#databridge)
+  - [Memory and thread management](#memory-and-thread-management)
+    - [Memory management](#memory-management)
+    - [Thread management](#thread-management)
+    - [Nested tasks](#nested-tasks)
+  - [More Usages](#more-usages)
+    - [Loading a Javascript bundle from disk](#loading-a-javascript-bundle-from-disk)
+    - [Evaluate a script](#evaluate-a-script)
+    - [Get/Set things as global variables](#getset-things-as-global-variables)
+    - [Export functions to JavaScript](#export-functions-to-javascript)
+    - [Export classes and objects to JavaScript](#export-classes-and-objects-to-javascript)
+    - [Extend methods on object](#extend-methods-on-object)
+    - [More](#more)
+  - [License](#license)
+
 
 ## Quick Start
 
-Values are converted automatically to the appropriate types  as needed.  Calls into JavascriptCore are all synchronized on the same serial dispatch queue.
+Values are converted automatically to the appropriate types  as needed.  Calls into the engine are all synchronized on the same serial dispatch queue.
 
 ```kotlin
 // create a scope and set error handler
@@ -21,6 +46,7 @@ val result = scope.await {
     return@await evaluate("1 + 2;")
 }
 
+// value is already unboxed!
 if (result == 3) {
     // success!
 }
@@ -29,7 +55,7 @@ if (result == 3) {
 
 ### Primitives (Pass-by-value)
 
-The engine supports the following primitive types natively. It's very similar to the `Pass-by-value` that primitives pass to/receive from the engine are only values that does not hold a reference, thus is free to use out of the js scope. The engine also boxes/unboxes the value automatically.
+The engine supports the following primitive types natively. It's very similar to the `Pass-by-value`. Primitives passed to/receive from the engine are values that does not hold a reference, thus is free to use out of the js scope. The engine also boxes/unboxes the value automatically.
 
 * int
 * boolean
@@ -58,9 +84,9 @@ val ret: Int? = scope.await {
 * JSFunction
 * JSException
 
-### Kotlin JsonElements
+### Kotlin JsonElement
 
-The library has implemented a converter for Kotlin's JsonElements. You can add JsonElement directly to a `JSObject` or `JSArray` as following:
+The library has implemented a converter for Kotlin's JsonElement. You can add JsonElement directly to a `JSObject` or `JSArray` as following:
 
 ```kotlin
 scope.sync {
@@ -102,9 +128,9 @@ The following example shows how to pass/receive JsonElement to/receive the engin
 
 ## JSScope
 
-`JSScope` is a safe wrapper on the actual JSEngine that manages memory and threads automatically. Within the scope, it provides an instance of `JSEngine` which in turn provides a `JSContext` and `JSRuntime`. This mechanism ensures the tasks always executed on the right context and runtime.
+`JSScope` is a safe wrapper on the actual `JSEngine` that manages memory and threads automatically. Within the scope, it provides an instance of `JSEngine` which in turn provides a `JSContext` and `JSRuntime`. This mechanism ensures the tasks always executed on the right context and runtime.
 
-### Launch, sync and await
+### Launch, Sync and Await
 
 `JSScope` provides 3 ways to run tasks depending on the use case:
 * `launch`: used if a task should be executed in a fire and forgot manner
@@ -236,14 +262,14 @@ scope.sync {
     // task2
 }
 
-// task2 starts until task1 completes
+// task2 won't start unless task1 completes
 ```
 
-In the above example, task2 awaits until task1 to complete because of scope only has a single thread, even though task1 is scheduled to run in background.
+In the above example, task2 awaits until task1 completed because of the scope only has a single thread. Even though task1 is scheduled to run in background, it occupies the thread thus preventing task2 to start.
 
 ### Nested tasks
 
-The scope also takes care of nested tasks to prevent deadlock. If a nested task is detected, it is lifted up and runs in sequential after it's parent task. However, the parent and nested tasks maintain their own memory scope, that is, variables created in the nested task will be released upon it finished.
+The scope also takes care of nested tasks to prevent deadlock. If a nested task is detected, it is lifted up and runs in sequential after it's parent task. However, the parent and nested tasks maintain their own memory scope, that is, variables created in the nested task will be released when the task finished.
 
 ```kotlin
 scope.sync {
@@ -306,7 +332,7 @@ scope.sync {
 }
 ```
 
-### Get/Set things as global objects
+### Get/Set things as global variables
 
 ```kotlin
         val script = """
