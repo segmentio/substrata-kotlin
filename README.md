@@ -75,9 +75,9 @@ val ret: Int? = scope.await {
 }
 ```
 
-### JSConvertibles (Pass-by-value)
+### JSConvertibles (Pass-by-reference)
 
-`JSConvertible` can be any of the following types. This is very similar to `Pass-by-value` that an object/array passed to/receive from the engine is in a form of `JSValue`, which represents the reference to the holder of the original object/array. You'd have to write a converter to convert it back to its original form
+`JSConvertible` can be any of the following types. This is very similar to `Pass-by-reference` that an object/array passed to/receive from the engine is in a form of `JSValue`, which represents the reference to the holder of the original object/array. You'd have to write a converter to convert it back to its original form
 
 * JSArray
 * JSObject
