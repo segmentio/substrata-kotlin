@@ -52,5 +52,4 @@ dependencies {
     implementation "org.jetbrains.kotlin:kotlin-reflect:1.6.21"
 }
 
-apply from: rootProject.file('gradle/artifacts.gradle')
 apply from: rootProject.file('gradle/mvn-publish.gradle')
