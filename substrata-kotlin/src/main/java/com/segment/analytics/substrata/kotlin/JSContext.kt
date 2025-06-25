@@ -34,7 +34,8 @@ class JSContext(
 
     fun evaluate(script: String): Any? {
         val ret = QuickJS.evaluate(contextRef, script, QuickJS.EVALUATOR, QuickJS.EVAL_TYPE_GLOBAL)
-        return getAny(ret)
+        val result = getAny(ret)
+        return if (result == JSNull) null else result
     }
 
 //    fun executeFunction(function: String, params: JSArray?): Any {
