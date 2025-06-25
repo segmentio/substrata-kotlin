@@ -25,28 +25,29 @@ internal inline fun <reified T> JSConvertible.isTypeOf() = when(T::class) {
     JSArray::class -> context.isArray(ref)
     JSObject::class -> context.isObject(ref)
     JSFunction::class -> context.isFunction(ref)
+    JSException::class -> true
     else -> false
 }
 
 internal inline fun <reified T> JSConvertible.cast() =
     if (isTypeOf<T>()) wrap<T>()
-    else null
+    else throw Exception("Failed to cast JSConvertible. Unknown type is passed")
 
-fun JSConvertible.asString(): String? = cast()
+fun JSConvertible.asString(): String = cast()
 
-fun JSConvertible.asBoolean(): Boolean? = cast()
+fun JSConvertible.asBoolean(): Boolean = cast()
 
-fun JSConvertible.asInt(): Int?  = cast()
+fun JSConvertible.asInt(): Int  = cast()
 
-fun JSConvertible.asDouble(): Double?  = cast()
+fun JSConvertible.asDouble(): Double  = cast()
 
-fun JSConvertible.asJSArray(): JSArray? =  cast()
+fun JSConvertible.asJSArray(): JSArray=  cast()
 
-fun JSConvertible.asJSObject(): JSObject? = cast()
+fun JSConvertible.asJSObject(): JSObject = cast()
 
-fun JSConvertible.asJSFunction(): JSFunction? = cast()
+fun JSConvertible.asJSFunction(): JSFunction = cast()
 
-fun JSConvertible.asJSException(): JSException? = wrap()
+fun JSConvertible.asJSException(): JSException = wrap()
 
 fun String.toJSValue(context: JSContext) = context.newJSValue(this)
 

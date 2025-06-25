@@ -34,7 +34,8 @@ class JSContext(
 
     fun evaluate(script: String): Any? {
         val ret = QuickJS.evaluate(contextRef, script, QuickJS.EVALUATOR, QuickJS.EVAL_TYPE_GLOBAL)
-        return getAny(ret)
+        val result = getAny(ret)
+        return if (result == JSNull) null else result
     }
 
 //    fun executeFunction(function: String, params: JSArray?): Any {
@@ -84,7 +85,7 @@ class JSContext(
 
     fun getAny(ref: Long) = getAny(JSValue(ref, this))
 
-    fun getAny(value: JSValue): Any? {
+    fun getAny(value: JSValue): Any {
         val type = QuickJS.getType(value.ref)
         return when (type) {
             QuickJS.TYPE_STRING -> value.asString()
@@ -103,7 +104,7 @@ class JSContext(
                 }
             }
             QuickJS.TYPE_EXCEPTION -> value.asJSException()
-            QuickJS.TYPE_NULL -> null
+            QuickJS.TYPE_NULL -> JSNull
             QuickJS.TYPE_UNDEFINED -> JSUndefined
 //            QuickJS.TYPE_EXCEPTION -> getExecption()
             else -> throw Exception("Property type is undefined")
