@@ -297,13 +297,25 @@ open class JSClass(
                         throw JSCallbackInvalidParametersException("Arguments does not match to Java method ${method.name}")
                     }
 
+                    val modifiableParams = params.toMutableList()
                     for (i in methodParams.indices) {
-                        if (methodParams[i].type.classifier != params[i]!!::class) {
+                        if (modifiableParams[i] == context.JSNull) {
+                            if (methodParams[i].type.isMarkedNullable) {
+                                modifiableParams[i] = null
+                            }
+                            else {
+                                modifiableParams[i] = methodParams[i].type.defaultValue()
+                            }
+                        }
+                        else if (modifiableParams[i] == context.JSUndefined) {
+                            modifiableParams[i] = methodParams[i].type.defaultValue()
+                        }
+                        else if (!typesCompatible(methodParams[i].type, modifiableParams[i])) {
                             throw JSCallbackInvalidParametersException("Wrong argument passed to Java method ${method.name}. Expecting ${methodParams[i]::class.simpleName}, but was ${params[i]!!::class.simpleName}")
                         }
                     }
 
-                    method.call(instance ?: obj, *params.toTypedArray())
+                    method.call(instance ?: obj, *modifiableParams.toTypedArray())
                 }
 
                 if (methods[method.name] == null) {
