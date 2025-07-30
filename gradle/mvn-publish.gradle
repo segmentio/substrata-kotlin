@@ -12,6 +12,10 @@ publishing {
             version getVersionName()
 
             artifact("$buildDir/outputs/aar/${project.getName()}-release.aar")
+            if (gradle.startParameter.taskNames.any { it.contains('publishToMavenLocal') }) {
+                artifact sourcesJar
+                artifact javadocJar
+            }
 
             // Self-explanatory metadata for the most part
             pom {
