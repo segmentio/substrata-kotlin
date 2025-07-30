@@ -600,6 +600,29 @@ class EngineTests {
     }
 
     @Test
+    fun testIncompatibleParameters() {
+        class MyJSClass {
+            fun test(a: String?, b: String, c: JSValue, d: Int): Int {
+                return d
+            }
+        }
+        scope.sync {
+            export( "MyJSClass", MyJSClass::class)
+            var res: Int = evaluate("""
+                let o = MyJSClass()
+                o.test(null, undefined, {}, 1234)
+            """) as Int
+            assertEquals(1234, res)
+
+            res = evaluate("""
+                o.test("a", "b", {}, 5678)
+            """) as Int
+            assertEquals(5678, res)
+        }
+        assertNotNull(exception)
+    }
+
+    @Test
     fun testAwait() {
         val ret = scope.await {
             export("add") { params ->
