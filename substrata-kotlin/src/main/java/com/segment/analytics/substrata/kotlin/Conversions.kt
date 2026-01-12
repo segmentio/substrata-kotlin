@@ -112,6 +112,9 @@ object JsonElementConverter : JSConverter<JsonElement> {
     }
 
     private fun JsonPrimitive.wrap(context: JSContext) : JSConvertible {
+        if (this.isString) {
+            return context.newString(content)
+        }
         this.booleanOrNull?.let {
             return context.newBool(it)
         }
@@ -123,9 +126,6 @@ object JsonElementConverter : JSConverter<JsonElement> {
         }
         this.doubleOrNull?.let {
             return context.newDouble(it)
-        }
-        if (this.isString) {
-            return context.newString(content)
         }
         return context.JSNull
     }
