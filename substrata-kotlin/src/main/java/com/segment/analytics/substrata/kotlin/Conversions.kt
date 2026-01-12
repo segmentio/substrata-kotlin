@@ -8,6 +8,7 @@ inline fun <reified T> JSConvertible.wrap() : T = with(context) {
         Boolean::class -> getBool(ref)
         Int::class -> getInt(ref)
         Double::class -> getDouble(ref)
+        Long::class -> getLong(ref)
         JSArray::class -> getJSArray(this@wrap)
         JSObject::class -> getJSObject(this@wrap)
         JSFunction::class -> getJSFunction(this@wrap)
@@ -111,6 +112,9 @@ object JsonElementConverter : JSConverter<JsonElement> {
     }
 
     private fun JsonPrimitive.wrap(context: JSContext) : JSConvertible {
+        if (this.isString) {
+            return context.newString(content)
+        }
         this.booleanOrNull?.let {
             return context.newBool(it)
         }
@@ -118,13 +122,10 @@ object JsonElementConverter : JSConverter<JsonElement> {
             return context.newInt(it)
         }
         this.longOrNull?.let {
-            return context.newDouble(it.toDouble())
+            return context.newLong(it)
         }
         this.doubleOrNull?.let {
             return context.newDouble(it)
-        }
-        if (this.isString) {
-            return context.newString(content)
         }
         return context.JSNull
     }

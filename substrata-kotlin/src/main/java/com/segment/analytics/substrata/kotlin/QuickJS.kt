@@ -42,6 +42,8 @@ class QuickJS {
         external fun newInt(context: Long, i: Int): Long
         external fun getFloat64(context: Long, ref: Long): Double
         external fun newFloat64(context: Long, d: Double): Long
+        external fun getLong(context: Long, ref: Long): Long
+        external fun newLong(context: Long, i: Long): Long
         external fun isString(ref: Long): Boolean
         external fun getString(context: Long, ref: Long): String
         external fun newString(context: Long, s: String): Long

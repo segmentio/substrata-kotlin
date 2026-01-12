@@ -2,6 +2,7 @@ package com.segment.analytics.substrata.kotlin
 
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.add
 import kotlinx.serialization.json.boolean
 import kotlinx.serialization.json.buildJsonArray
@@ -204,6 +205,42 @@ class TypesTests {
             assert(jsObject is JSObject)
             val jsonObject = JsonElementConverter.read(jsObject)
             assertNotNull(jsonObject)
+        }
+    }
+
+
+    @Test
+    fun testJsonElementConverterWithNumberString() {
+        val content = buildJsonObject {
+            put("a", "1")
+            put("b", 1)
+            put("c", "1.0")
+            put("d", 1.0)
+            put("e", "100000000000000")
+            put("f", 100000000000000)
+        }
+
+        context.memScope {
+            val jsObject = JsonElementConverter.write(content, this)
+            assert(jsObject is JSObject)
+            val jsonElement = JsonElementConverter.read(jsObject)
+            assertTrue(jsonElement is JsonObject)
+            val jsonObject = jsonElement as JsonObject
+
+            assertEquals(true, jsonObject["a"]?.jsonPrimitive?.isString)
+            assertEquals("1", jsonObject["a"]?.jsonPrimitive?.content)
+            assertEquals(false, jsonObject["b"]?.jsonPrimitive?.isString)
+            assertEquals(1, jsonObject["b"]?.jsonPrimitive?.int)
+
+            assertEquals(true, jsonObject["c"]?.jsonPrimitive?.isString)
+            assertEquals("1.0", jsonObject["c"]?.jsonPrimitive?.content)
+            assertEquals(false, jsonObject["d"]?.jsonPrimitive?.isString)
+            assertEquals(1.0, jsonObject["d"]?.jsonPrimitive?.double)
+
+            assertEquals(true, jsonObject["e"]?.jsonPrimitive?.isString)
+            assertEquals("100000000000000", jsonObject["e"]?.jsonPrimitive?.content)
+            assertEquals(false, jsonObject["f"]?.jsonPrimitive?.isString)
+            assertEquals(100000000000000.0, jsonObject["f"]?.jsonPrimitive?.double)
         }
     }
 }
