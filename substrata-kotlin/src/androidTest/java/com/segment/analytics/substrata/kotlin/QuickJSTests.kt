@@ -53,6 +53,15 @@ class QuickJSTests {
     }
 
     @Test
+    fun testLong() = context.memScope  {
+        val v = newLong(1234567890123L)
+        val type = context.getType(v)
+        assertEquals(QuickJS.TYPE_FLOAT64, type)
+        assertTrue(isNumber(v))
+        assertEquals(1234567890123L, getLong(v))
+    }
+
+    @Test
     fun testString() = context.memScope  {
         val v = newString("abc")
         val type = context.getType(v)

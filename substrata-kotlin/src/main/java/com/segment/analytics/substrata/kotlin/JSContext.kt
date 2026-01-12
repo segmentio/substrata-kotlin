@@ -235,6 +235,15 @@ class JSContext(
         return JSValue(v, this)
     }
 
+    fun getLong(valueRef: Long) = QuickJS.getLong(contextRef, valueRef)
+
+    fun getLong(value: JSConvertible) = getLong(value.ref)
+
+    fun newLong(value: Long): JSConvertible {
+        val v = QuickJS.newLong(contextRef, value)
+        return JSValue(v, this)
+    }
+
     fun isString(valueRef: Long) = QuickJS.isString(valueRef)
 
     fun isString(value: JSConvertible) = isString(value.ref)

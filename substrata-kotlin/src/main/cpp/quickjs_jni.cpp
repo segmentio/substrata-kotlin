@@ -207,6 +207,44 @@ Java_com_segment_analytics_substrata_kotlin_QuickJS_00024Companion_newFloat64(JN
     }
 }
 extern "C"
+JNIEXPORT jlong JNICALL
+Java_com_segment_analytics_substrata_kotlin_QuickJS_00024Companion_getLong(JNIEnv *env,
+                                                                              jobject thiz,
+                                                                              jlong context,
+                                                                              jlong value) {
+    try {
+        JSContext *ctx = (JSContext *) context;
+        JSValue *val = (JSValue *) value;
+        int64_t d;
+        JS_ToInt64(ctx, &d, *val);
+        return d;
+    }
+    catch (...) {
+        swallow_cpp_exception_and_throw_java(env);
+        return 0;
+    }
+}
+extern "C"
+JNIEXPORT jlong JNICALL
+Java_com_segment_analytics_substrata_kotlin_QuickJS_00024Companion_newLong(JNIEnv *env,
+                                                                              jobject thiz,
+                                                                              jlong context,
+                                                                              jlong d) {
+    try {
+        JSContext *ctx = (JSContext *) context;
+
+        void *result = NULL;
+        JSValue val = JS_NewInt64(ctx, d);
+        COPY_JS_VALUE(ctx, val, result);
+
+        return (jlong) result;
+    }
+    catch (...) {
+        swallow_cpp_exception_and_throw_java(env);
+        return 0;
+    }
+}
+extern "C"
 JNIEXPORT jboolean JNICALL
 Java_com_segment_analytics_substrata_kotlin_QuickJS_00024Companion_isString(JNIEnv *env,
                                                                             jobject thiz,
